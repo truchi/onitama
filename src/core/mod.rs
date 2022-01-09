@@ -3,12 +3,14 @@ mod card;
 mod game;
 mod r#move;
 mod square;
+mod utils;
 
 pub use board::*;
 pub use card::*;
 pub use game::*;
 pub use r#move::*;
 pub use square::*;
+pub use utils::*;
 
 use std::ops::Not;
 

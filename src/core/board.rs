@@ -3,18 +3,18 @@ use std::ops::Index;
 use std::ops::IndexMut;
 
 #[derive(Copy, Clone, Eq, PartialEq, Debug)]
-pub struct Board<T>(pub [[T; SIZE]; SIZE]);
+pub struct Board(pub [[Option<Piece>; SIZE]; SIZE]);
 
-impl<T> Index<Square> for Board<T> {
-    type Output = T;
+impl Index<Square> for Board {
+    type Output = Option<Piece>;
 
-    fn index(&self, square: Square) -> &T {
+    fn index(&self, square: Square) -> &Option<Piece> {
         &self.0[square.file() as usize][square.rank() as usize]
     }
 }
 
-impl<T> IndexMut<Square> for Board<T> {
-    fn index_mut(&mut self, square: Square) -> &mut T {
+impl IndexMut<Square> for Board {
+    fn index_mut(&mut self, square: Square) -> &mut Option<Piece> {
         &mut self.0[square.file() as usize][square.rank() as usize]
     }
 }
