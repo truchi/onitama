@@ -8,6 +8,27 @@ pub struct Side {
 }
 
 impl Side {
+    pub fn pieces(&self, player: Player) -> impl '_ + Iterator<Item = (Piece, Square)> {
+        self.pawns
+            .iter()
+            .enumerate()
+            .map(move |(pawn, square)| ((player, Pawn(pawn)), *square))
+            .chain(Some(((player, King), self.king)))
+    }
+
+    pub fn moves(&self) -> impl '_ + Iterator<Item = ((usize, Card), (usize, Move))> {
+        self.hand
+            .iter()
+            .enumerate()
+            .map(|(c, card)| {
+                card.moves
+                    .iter()
+                    .enumerate()
+                    .map(move |(m, mov)| ((c, *card), (m, *mov)))
+            })
+            .flatten()
+    }
+
     pub fn square(&self, piece: PieceType) -> &Square {
         match piece {
             King => &self.king,
@@ -44,8 +65,37 @@ pub struct Game {
 }
 
 impl Game {
-    pub fn plays(&mut self) -> Vec<Play> {
-        todo!()
+    pub fn plays(&self) -> Option<Vec<Play>> {
+        let mut plays = vec![];
+        let player = self.turn;
+        let side = self.side(player);
+
+        for (piece, src) in side.pieces(player) {
+            for (card, r#move) in side.moves() {
+                if let Some(dest) = src.apply(r#move.1) {
+                    let capture = self.board[dest];
+
+                    if matches!(capture, Some((player, _))) {
+                        continue;
+                    }
+
+                    plays.push(Play {
+                        piece,
+                        card,
+                        r#move,
+                        src,
+                        dest,
+                        capture,
+                    });
+                }
+            }
+        }
+
+        if plays.is_empty() {
+            None
+        } else {
+            Some(plays)
+        }
     }
 
     pub fn play(&mut self, play: Play) {
@@ -81,17 +131,18 @@ impl Game {
 
         // Update hand
         self.discard_unchecked(play.card.0);
-
-        ()
     }
 
     pub fn discard(&mut self, card: usize) {
         debug_assert!(self.winner.is_none());
-        debug_assert!(self.plays().is_empty());
+        debug_assert!(self.plays().is_none());
+
         self.discard_unchecked(card);
     }
 
     fn discard_unchecked(&mut self, card: usize) {
+        debug_assert!(card < HAND);
+
         std::mem::swap(&mut self.spare, {
             &mut match self.turn {
                 Red => &mut self.red,
