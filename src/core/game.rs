@@ -48,7 +48,7 @@ pub struct Play {
     pub capture: Option<Piece>,
 }
 
-#[derive(Copy, Clone, Eq, PartialEq, Debug)]
+#[derive(Clone, Eq, PartialEq, Debug)]
 pub struct Game {
     winner: Option<Player>,
     player: Player,
@@ -56,45 +56,50 @@ pub struct Game {
     red: Side,
     blue: Side,
     spare: usize,
+    plays: Option<Box<[Play]>>,
 }
 
 impl Game {
-    pub fn plays(&self) -> Option<Vec<Play>> {
-        let mut plays = vec![];
-        let player = self.player;
-        let side = self.side(player);
+    pub fn plays(&mut self) -> &[Play] {
+        if self.plays.is_none() {
+            let mut plays = vec![];
+            let player = self.player;
+            let side = self.side(player);
 
-        for (piece, src) in side.pieces(player) {
-            for (card, r#move) in side.moves() {
-                if let Some(dest) = src.apply(r#move.1) {
-                    let capture = self.board[dest];
+            for (piece, src) in side.pieces(player) {
+                for (card, r#move) in side.moves() {
+                    if let Some(dest) = src.apply(r#move.1) {
+                        let capture = self.board[dest];
 
-                    if matches!(capture, Some(piece) if piece.player() == player) {
-                        continue;
+                        if matches!(capture, Some(piece) if piece.player() == player) {
+                            continue;
+                        }
+
+                        plays.push(Play {
+                            piece,
+                            card,
+                            r#move,
+                            src,
+                            dest,
+                            capture,
+                        });
                     }
-
-                    plays.push(Play {
-                        piece,
-                        card,
-                        r#move,
-                        src,
-                        dest,
-                        capture,
-                    });
                 }
             }
+
+            self.plays = Some(plays.into());
         }
 
-        if plays.is_empty() {
-            None
+        if let Some(plays) = &self.plays {
+            &plays[..]
         } else {
-            Some(plays)
+            panic!()
         }
     }
 
-    pub fn play(&mut self, play: Play) {
+    pub fn play(&mut self, play: usize) {
         debug_assert!(self.winner.is_none());
-        debug_assert!(self.is_play_legal(play));
+        let play = self.plays()[play];
 
         // Update board
         self.board[play.src] = None;
@@ -117,7 +122,7 @@ impl Game {
 
     pub fn discard(&mut self, card: usize) {
         debug_assert!(self.winner.is_none());
-        debug_assert!(self.plays().is_none());
+        debug_assert!(self.plays().is_empty());
 
         self.discard_unchecked(card);
     }
