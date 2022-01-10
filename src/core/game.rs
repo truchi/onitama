@@ -60,6 +60,21 @@ pub struct Game {
 }
 
 impl Game {
+    pub fn pieces(&self, player: Player) -> impl '_ + Iterator<Item = (Piece, Square)> {
+        self.side(player).pieces(player)
+    }
+
+    pub fn distance(&self, player: Player) -> u8 {
+        let king = self.side(player).pieces[2].unwrap();
+        let square = Square::king(!player);
+
+        let king = (king.file() as i8, king.rank() as i8);
+        let square = (square.file() as i8, square.rank() as i8);
+
+        let distance = ((king.0 - square.0).abs(), (king.1 - square.1).abs());
+        distance.0.max(distance.1) as u8
+    }
+
     pub fn plays(&mut self) -> &[Play] {
         if self.plays.is_none() {
             let mut plays = vec![];
@@ -90,11 +105,7 @@ impl Game {
             self.plays = Some(plays.into());
         }
 
-        if let Some(plays) = &self.plays {
-            &plays[..]
-        } else {
-            panic!()
-        }
+        &(&self.plays.as_ref()).unwrap()[..]
     }
 
     pub fn play(&mut self, play: usize) {
