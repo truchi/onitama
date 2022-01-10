@@ -3,7 +3,7 @@ use super::*;
 #[derive(Copy, Clone, Eq, PartialEq, Debug)]
 pub struct Side {
     pub pieces: [Option<Square>; SIZE],
-    pub cards: [Card; HAND],
+    pub cards: [usize; HAND],
 }
 
 impl Side {
@@ -18,12 +18,13 @@ impl Side {
     pub fn moves(&self) -> impl '_ + Iterator<Item = ((usize, Card), (usize, Move))> {
         self.cards
             .iter()
+            .map(|&card| CARDS[card])
             .enumerate()
             .map(|(c, card)| {
                 card.moves
                     .iter()
                     .enumerate()
-                    .map(move |(m, mov)| ((c, *card), (m, *mov)))
+                    .map(move |(m, &mov)| ((c, card), (m, mov)))
             })
             .flatten()
     }
@@ -54,7 +55,7 @@ pub struct Game {
     board: Board,
     red: Side,
     blue: Side,
-    spare: Card,
+    spare: usize,
 }
 
 impl Game {
@@ -125,7 +126,7 @@ impl Game {
         debug_assert!(card < HAND);
 
         std::mem::swap(&mut self.spare, {
-            &mut match self.turn {
+            &mut match self.player {
                 Red => &mut self.red,
                 Blue => &mut self.blue,
             }
@@ -148,15 +149,15 @@ impl Game {
     }
 
     fn is_play_legal(&self, play: Play) -> bool {
-        let side = self.side(self.turn);
+        let side = self.side(self.player);
 
         // Is it player's turn?
-        if play.piece.player() != self.turn {
+        if play.piece.player() != self.player {
             return false;
         }
 
         // Is card OK?
-        if side.cards[play.card.0] != play.card.1 {
+        if CARDS[side.cards[play.card.0]] != play.card.1 {
             return false;
         }
 
@@ -184,7 +185,7 @@ impl Game {
 
             // Is capture other player's piece?
             if let Some(piece) = play.capture {
-                if piece.player() != !self.turn {
+                if piece.player() != !self.player {
                     return false;
                 }
             }
