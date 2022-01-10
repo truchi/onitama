@@ -8,17 +8,17 @@ pub struct Board(pub [[Option<Piece>; SIZE]; SIZE]);
 impl Default for Board {
     fn default() -> Self {
         macro_rules! file {
-            ($piece:expr) => {
-                [Some((Red, $piece)), None, None, None, Some((Blue, $piece))]
+            ($red:expr, $blue:expr) => {
+                [Some($red), None, None, None, Some($blue)]
             };
         }
 
         Self([
-            file!(Pawn(0)),
-            file!(Pawn(1)),
-            file!(King),
-            file!(Pawn(2)),
-            file!(Pawn(3)),
+            file!(RedPawnA, BluePawnA),
+            file!(RedPawnB, BluePawnB),
+            file!(RedKing, BlueKing),
+            file!(RedPawnD, BluePawnD),
+            file!(RedPawnE, BluePawnE),
         ])
     }
 }

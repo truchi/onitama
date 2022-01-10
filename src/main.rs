@@ -5,31 +5,24 @@ mod core;
 pub use self::core::*;
 
 fn main() {
-    debug_cards();
+    // debug_cards();
+    dbg!(std::mem::size_of::<Player>());
     dbg!(std::mem::size_of::<Play>());
     dbg!(std::mem::size_of::<Move>());
     dbg!(std::mem::size_of::<Card>());
     dbg!(std::mem::size_of::<Square>());
-    dbg!(std::mem::size_of::<Option<Square>>());
     dbg!(std::mem::size_of::<Side>());
     dbg!(std::mem::size_of::<Piece>());
-    dbg!(std::mem::size_of::<Option<Piece>>());
-    dbg!(std::mem::size_of::<Option<Piece>>() * SIZE * SIZE);
-    dbg!(std::mem::size_of::<[Option<Piece>; SIZE * SIZE]>());
-    dbg!(std::mem::size_of::<Board>());
+    dbg!(std::mem::size_of::<Board>()); // 600...
     dbg!(std::mem::size_of::<Game>()); // 856...
-    dbg!(std::mem::size_of::<P>());
-    dbg!(std::mem::size_of::<Option<P>>());
-    dbg!(std::mem::size_of::<Option<P>>() * SIZE * SIZE);
-    dbg!(std::mem::size_of::<[Option<P>; SIZE * SIZE]>());
+    dbg!(std::mem::size_of::<[Option<Square>; SIZE]>());
 
-    enum P {
-        King,
-        PawnA,
-        PawnB,
-        PawnD,
-        PawnE,
-    }
+    // winner: Option<Player>,
+    // turn: Player,
+    // board: Board,
+    // red: Side,
+    // blue: Side,
+    // spare: Card,
 
     let board = Board::default();
     // dbg!(board[Square(A, One)]);

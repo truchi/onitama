@@ -2,22 +2,21 @@ use super::*;
 
 #[derive(Copy, Clone, Eq, PartialEq, Debug)]
 pub struct Side {
-    pub king: Square,
-    pub pawns: List<Square, PAWNS>,
-    pub hand: [Card; HAND],
+    pub pieces: [Option<Square>; SIZE],
+    pub cards: [Card; HAND],
 }
 
 impl Side {
     pub fn pieces(&self, player: Player) -> impl '_ + Iterator<Item = (Piece, Square)> {
-        self.pawns
-            .iter()
+        self.pieces
+            .into_iter()
+            .filter_map(|s| s)
             .enumerate()
-            .map(move |(pawn, square)| ((player, Pawn(pawn)), *square))
-            .chain(Some(((player, King), self.king)))
+            .map(move |(i, square)| (Piece::from((i, player)), square))
     }
 
     pub fn moves(&self) -> impl '_ + Iterator<Item = ((usize, Card), (usize, Move))> {
-        self.hand
+        self.cards
             .iter()
             .enumerate()
             .map(|(c, card)| {
@@ -29,18 +28,12 @@ impl Side {
             .flatten()
     }
 
-    pub fn square(&self, piece: PieceType) -> &Square {
-        match piece {
-            King => &self.king,
-            Pawn(pawn) => self.pawns.get(pawn).unwrap(),
-        }
+    pub fn square(&self, piece: Piece) -> &Option<Square> {
+        &self.pieces[piece.index()]
     }
 
-    pub fn square_mut(&mut self, piece: PieceType) -> &mut Square {
-        match piece {
-            King => &mut self.king,
-            Pawn(pawn) => self.pawns.get_mut(pawn).unwrap(),
-        }
+    pub fn square_mut(&mut self, piece: Piece) -> &mut Option<Square> {
+        &mut self.pieces[piece.index()]
     }
 }
 
@@ -57,7 +50,7 @@ pub struct Play {
 #[derive(Copy, Clone, Eq, PartialEq, Debug)]
 pub struct Game {
     winner: Option<Player>,
-    turn: Player,
+    player: Player,
     board: Board,
     red: Side,
     blue: Side,
@@ -67,7 +60,7 @@ pub struct Game {
 impl Game {
     pub fn plays(&self) -> Option<Vec<Play>> {
         let mut plays = vec![];
-        let player = self.turn;
+        let player = self.player;
         let side = self.side(player);
 
         for (piece, src) in side.pieces(player) {
@@ -75,7 +68,7 @@ impl Game {
                 if let Some(dest) = src.apply(r#move.1) {
                     let capture = self.board[dest];
 
-                    if matches!(capture, Some((player, _))) {
+                    if matches!(capture, Some(piece) if piece.player() == player) {
                         continue;
                     }
 
@@ -106,31 +99,19 @@ impl Game {
         self.board[play.src] = None;
         self.board[play.dest] = Some(play.piece);
 
-        if self.board[Square::king(!self.turn)] == Some((self.turn, King)) {
-            self.winner = Some(self.turn);
-        }
-
         // Update pieces
-        *self.side_mut(self.turn).square_mut(play.piece.1) = play.dest;
-
-        if let Some((_, piece)) = play.capture {
-            match piece {
-                King => {
-                    self.winner = Some(self.turn);
-                }
-                Pawn(pawn) => {
-                    let mut pawns = self.side_mut(!self.turn).pawns;
-
-                    if let Some(&square) = pawns.swap_remove(pawn) {
-                        debug_assert!(self.board[square] == Some((!self.turn, Pawn(pawns.len()))));
-                        self.board[square] = Some((!self.turn, Pawn(pawn)));
-                    }
-                }
-            }
-        }
+        *self.side_mut(self.player).square_mut(play.piece) = Some(play.dest);
 
         // Update hand
         self.discard_unchecked(play.card.0);
+
+        // Update winner
+        let stone = play.capture == Some(Piece::king(!self.player));
+        let stream = self.board[Square::king(!self.player)] == Some(Piece::king(self.player));
+
+        if stone || stream {
+            self.winner = Some(self.player);
+        }
     }
 
     pub fn discard(&mut self, card: usize) {
@@ -148,7 +129,7 @@ impl Game {
                 Red => &mut self.red,
                 Blue => &mut self.blue,
             }
-            .hand[card]
+            .cards[card]
         });
     }
 
@@ -170,19 +151,12 @@ impl Game {
         let side = self.side(self.turn);
 
         // Is it player's turn?
-        if play.piece.0 != self.turn {
+        if play.piece.player() != self.turn {
             return false;
         }
 
-        // Is pawn alive?
-        if let Pawn(pawn) = play.piece.1 {
-            if pawn >= side.pawns.len() {
-                return false;
-            }
-        }
-
         // Is card OK?
-        if side.hand[play.card.0] != play.card.1 {
+        if side.cards[play.card.0] != play.card.1 {
             return false;
         }
 
@@ -192,7 +166,7 @@ impl Game {
         }
 
         // Is src correct?
-        if play.src != *side.square(play.piece.1) {
+        if Some(play.src) != *side.square(play.piece) {
             return false;
         }
 
@@ -209,8 +183,8 @@ impl Game {
             }
 
             // Is capture other player's piece?
-            if let Some((player, _)) = play.capture {
-                if player != !self.turn {
+            if let Some(piece) = play.capture {
+                if piece.player() != !self.turn {
                     return false;
                 }
             }

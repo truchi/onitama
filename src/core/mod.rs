@@ -51,20 +51,66 @@ impl Not for Player {
     }
 }
 
-pub use PieceType::*;
+pub use Piece::*;
 #[derive(Copy, Clone, Eq, PartialEq, Debug)]
-pub enum PieceType {
-    King,
-    Pawn(usize),
+pub enum Piece {
+    RedKing,
+    RedPawnA,
+    RedPawnB,
+    RedPawnD,
+    RedPawnE,
+    BlueKing,
+    BluePawnA,
+    BluePawnB,
+    BluePawnD,
+    BluePawnE,
 }
 
-impl PieceType {
-    pub fn pawn_mut(&mut self) -> Option<&mut usize> {
-        match self {
-            King => None,
-            Pawn(pawn) => Some(pawn),
+impl Piece {
+    pub fn king(player: Player) -> Self {
+        match player {
+            Red => RedKing,
+            Blue => BlueKing,
+        }
+    }
+
+    pub fn player(&self) -> Player {
+        if (*self as usize) < BlueKing as usize {
+            Red
+        } else {
+            Blue
+        }
+    }
+
+    pub fn index(&self) -> usize {
+        let index = *self as usize;
+
+        if let Some(index) = index.checked_sub(SIZE) {
+            index
+        } else {
+            index
         }
     }
 }
 
-pub type Piece = (Player, PieceType);
+impl From<(usize, Player)> for Piece {
+    fn from((index, player): (usize, Player)) -> Self {
+        macro_rules! piece {
+            ($player:ident, $Red:ident, $Blue:ident) => {
+                match player {
+                    Red => $Red,
+                    Blue => $Blue,
+                }
+            };
+        }
+
+        match index {
+            0 => piece!(player, RedPawnA, BluePawnA),
+            1 => piece!(player, RedPawnB, BluePawnB),
+            2 => piece!(player, RedKing, BlueKing),
+            3 => piece!(player, RedPawnD, BluePawnD),
+            4 => piece!(player, RedPawnE, BluePawnE),
+            _ => panic!(),
+        }
+    }
+}
