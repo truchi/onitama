@@ -2,9 +2,9 @@ use super::*;
 
 #[derive(Copy, Clone, Eq, PartialEq, Debug)]
 pub struct Card {
-    name: &'static str,
-    stamp: Player,
-    moves: Moves,
+    pub name: &'static str,
+    pub stamp: Player,
+    pub moves: Moves,
 }
 
 macro_rules! card {

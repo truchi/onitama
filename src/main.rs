@@ -15,6 +15,7 @@ fn main() {
 
     // dbg!(board[Square(A, One)]);
     // dbg!(CARDS);
+    dbg!(std::mem::size_of::<Play>());
 
     debug_cards();
 }

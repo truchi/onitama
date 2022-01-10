@@ -33,7 +33,7 @@ pub struct Play {
     pub capture: Option<Piece>,
 }
 
-#[derive(Copy, Clone, PartialEq, Debug)]
+#[derive(Copy, Clone, Eq, PartialEq, Debug)]
 pub struct Game {
     winner: Option<Player>,
     turn: Player,
@@ -41,18 +41,16 @@ pub struct Game {
     red: Side,
     blue: Side,
     spare: Card,
-    legals: Option<List<Play, PLAYS>>,
-    score: Option<f32>,
 }
 
 impl Game {
-    pub fn legals(&mut self) -> &[Play] {
+    pub fn plays(&mut self) -> Vec<Play> {
         todo!()
     }
 
-    pub fn play(&mut self, index: usize) {
+    pub fn play(&mut self, play: Play) {
         debug_assert!(self.winner.is_none());
-        let play = *self.legals().get(index).unwrap();
+        debug_assert!(self.is_play_legal(play));
 
         // Update board
         self.board[play.src] = None;
@@ -89,7 +87,7 @@ impl Game {
 
     pub fn discard(&mut self, card: usize) {
         debug_assert!(self.winner.is_none());
-        debug_assert!(self.legals().is_empty());
+        debug_assert!(self.plays().is_empty());
         self.discard_unchecked(card);
     }
 
@@ -115,5 +113,60 @@ impl Game {
             Red => &mut self.red,
             Blue => &mut self.blue,
         }
+    }
+
+    fn is_play_legal(&self, play: Play) -> bool {
+        let side = self.side(self.turn);
+
+        // Is it player's turn?
+        if play.piece.0 != self.turn {
+            return false;
+        }
+
+        // Is pawn alive?
+        if let Pawn(pawn) = play.piece.1 {
+            if pawn >= side.pawns.len() {
+                return false;
+            }
+        }
+
+        // Is card OK?
+        if side.hand[play.card.0] != play.card.1 {
+            return false;
+        }
+
+        // Is move OK?
+        if play.card.1.r#moves[play.r#move.0] != play.r#move.1 {
+            return false;
+        }
+
+        // Is src correct?
+        if play.src != *side.square(play.piece.1) {
+            return false;
+        }
+
+        // Is move in board?
+        if let Some(dest) = play.src.apply(play.r#move.1) {
+            // Is dest correct?
+            if play.dest != dest {
+                return false;
+            }
+
+            // Is capture correct?
+            if self.board[dest] != play.capture {
+                return false;
+            }
+
+            // Is capture other player's piece?
+            if let Some((player, _)) = play.capture {
+                if player != !self.turn {
+                    return false;
+                }
+            }
+        } else {
+            return false;
+        }
+
+        true
     }
 }
