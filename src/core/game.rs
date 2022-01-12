@@ -8,12 +8,18 @@ pub struct Side {
 }
 
 impl Side {
-    pub fn pieces(&self, player: Player) -> impl '_ + Iterator<Item = (Piece, Square)> {
+    pub fn pieces(&self) -> impl '_ + Iterator<Item = (Piece, Square)> {
         self.pieces
             .into_iter()
-            .filter_map(|s| s)
             .enumerate()
-            .map(move |(i, square)| (Piece::from((i, player)), square))
+            .filter_map(|(i, square)| {
+                if let Some(square) = square {
+                    Some((i, square))
+                } else {
+                    None
+                }
+            })
+            .map(move |(i, square)| (Piece::from(i), square))
     }
 
     pub fn moves(&self) -> impl '_ + Iterator<Item = ((usize, Card), (usize, Move))> {
@@ -58,11 +64,11 @@ pub struct Game {
 
 impl Game {
     pub fn pieces(&self, player: Player) -> impl '_ + Iterator<Item = (Piece, Square)> {
-        self[player].pieces(player)
+        self[player].pieces()
     }
 
     pub fn distance(&self, player: Player) -> u8 {
-        let king = self[Piece::king(player)].unwrap();
+        let king = self[(player, King)].unwrap();
         let square = Square::king(!player);
 
         let king = (king.file() as i8, king.rank() as i8);
@@ -77,10 +83,10 @@ impl Game {
         let player = self.player;
         let side = self.side(player);
 
-        for (piece, src) in side.pieces(player) {
+        for (_, src) in side.pieces() {
             for ((card, _), (_, r#move)) in side.moves() {
                 if let Some(dest) = src.apply(r#move) {
-                    if matches!(self[dest], Some(piece) if piece.player() == player) {
+                    if matches!(self[dest], Some((p, _)) if p == player) {
                         continue;
                     }
 
@@ -95,25 +101,27 @@ impl Game {
     pub fn play(&mut self, play: Play) {
         debug_assert!(self.winner.is_none());
 
-        let piece = self[play.src].unwrap();
+        let (player, piece) = self[play.src].unwrap();
         let capture = self[play.dest];
+
+        debug_assert!(self.player == player);
 
         // Update board
         self.board[play.src] = None;
-        self.board[play.dest] = Some(piece);
+        self.board[play.dest] = Some((player, piece));
 
         // Update pieces
-        *self.side_mut(self.player).square_mut(piece) = Some(play.dest);
+        *self.side_mut(player).square_mut(piece) = Some(play.dest);
 
         // Update hand
         self.discard_unchecked(play.card);
 
         // Update winner
-        let stone = capture == Some(Piece::king(!self.player));
-        let stream = self[Square::king(!self.player)] == Some(Piece::king(self.player));
+        let stone = capture == Some((!player, King));
+        let stream = self[Square::king(!player)] == Some((player, King));
 
         if stone || stream {
-            self.winner = Some(self.player);
+            self.winner = Some(player);
         }
     }
 
@@ -154,9 +162,9 @@ impl Game {
 }
 
 impl Index<Square> for Game {
-    type Output = Option<Piece>;
+    type Output = Option<(Player, Piece)>;
 
-    fn index(&self, square: Square) -> &Option<Piece> {
+    fn index(&self, square: Square) -> &Option<(Player, Piece)> {
         &self.board[square]
     }
 }
@@ -169,10 +177,10 @@ impl Index<Player> for Game {
     }
 }
 
-impl Index<Piece> for Game {
+impl Index<(Player, Piece)> for Game {
     type Output = Option<Square>;
 
-    fn index(&self, piece: Piece) -> &Option<Square> {
-        self.side(piece.player()).square(piece)
+    fn index(&self, (player, piece): (Player, Piece)) -> &Option<Square> {
+        self.side(player).square(piece)
     }
 }
