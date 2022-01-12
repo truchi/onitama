@@ -41,12 +41,9 @@ impl Side {
 
 #[derive(Copy, Clone, Eq, PartialEq, Debug)]
 pub struct Play {
-    pub piece: Piece,
-    pub card: (usize, Card),
-    pub r#move: (usize, Move),
+    pub card: usize,
     pub src: Square,
     pub dest: Square,
-    pub capture: Option<Piece>,
 }
 
 #[derive(Clone, Eq, PartialEq, Debug)]
@@ -62,11 +59,11 @@ pub struct Game {
 
 impl Game {
     pub fn pieces(&self, player: Player) -> impl '_ + Iterator<Item = (Piece, Square)> {
-        self.side(player).pieces(player)
+        self[player].pieces(player)
     }
 
     pub fn distance(&self, player: Player) -> u8 {
-        let king = self.side(player).pieces[2].unwrap();
+        let king = self[Piece::king(player)].unwrap();
         let square = Square::king(!player);
 
         let king = (king.file() as i8, king.rank() as i8);
@@ -84,23 +81,25 @@ impl Game {
         &(&self.plays.as_ref()).unwrap()[..]
     }
 
-    pub fn play(&mut self, play: usize) {
+    pub fn play(&mut self, play: Play) {
         debug_assert!(self.winner.is_none());
-        let play = self.plays()[play];
+
+        let piece = self[play.src].unwrap();
+        let capture = self[play.dest];
 
         // Update board
         self.board[play.src] = None;
-        self.board[play.dest] = Some(play.piece);
+        self.board[play.dest] = Some(piece);
 
         // Update pieces
-        *self.side_mut(self.player).square_mut(play.piece) = Some(play.dest);
+        *self.side_mut(self.player).square_mut(piece) = Some(play.dest);
 
         // Update hand
-        self.discard_unchecked(play.card.0);
+        self.discard_unchecked(play.card);
 
         // Update winner
-        let stone = play.capture == Some(Piece::king(!self.player));
-        let stream = self.board[Square::king(!self.player)] == Some(Piece::king(self.player));
+        let stone = capture == Some(Piece::king(!self.player));
+        let stream = self[Square::king(!self.player)] == Some(Piece::king(self.player));
 
         if stone || stream {
             self.winner = Some(self.player);
@@ -122,22 +121,13 @@ impl Game {
         let side = self.side(player);
 
         for (piece, src) in side.pieces(player) {
-            for (card, r#move) in side.moves() {
-                if let Some(dest) = src.apply(r#move.1) {
-                    let capture = self.board[dest];
-
-                    if matches!(capture, Some(piece) if piece.player() == player) {
+            for ((card, _), (_, r#move)) in side.moves() {
+                if let Some(dest) = src.apply(r#move) {
+                    if matches!(self[dest], Some(piece) if piece.player() == player) {
                         continue;
                     }
 
-                    plays.push(Play {
-                        piece,
-                        card,
-                        r#move,
-                        src,
-                        dest,
-                        capture,
-                    });
+                    plays.push(Play { card, src, dest });
                 }
             }
         }
@@ -177,6 +167,14 @@ impl Index<Square> for Game {
 
     fn index(&self, square: Square) -> &Option<Piece> {
         &self.board[square]
+    }
+}
+
+impl Index<Player> for Game {
+    type Output = Side;
+
+    fn index(&self, player: Player) -> &Side {
+        self.side(player)
     }
 }
 
