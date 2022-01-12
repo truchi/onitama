@@ -4,7 +4,7 @@ use std::ops::Index;
 #[derive(Copy, Clone, Eq, PartialEq, Debug)]
 pub struct Side {
     pub pieces: [Option<Square>; SIZE],
-    pub cards: [usize; HAND],
+    pub cards:  [usize; HAND],
 }
 
 impl Side {
@@ -60,7 +60,7 @@ impl Side {
 #[derive(Copy, Clone, Eq, PartialEq, Debug)]
 pub struct Play {
     pub card: usize,
-    pub src: Square,
+    pub src:  Square,
     pub dest: Square,
 }
 
@@ -68,10 +68,10 @@ pub struct Play {
 pub struct Game {
     winner: Option<Player>,
     player: Player,
-    board: Board,
-    red: Side,
-    blue: Side,
-    spare: usize,
+    board:  Board,
+    red:    Side,
+    blue:   Side,
+    spare:  usize,
 }
 
 impl Game {

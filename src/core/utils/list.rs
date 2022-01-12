@@ -4,14 +4,14 @@ use std::ops::DerefMut;
 #[derive(Copy, Clone, Eq, PartialEq, Debug)]
 pub struct List<T, const N: usize> {
     items: [T; N],
-    len: usize,
+    len:   usize,
 }
 
 impl<T: Default, const N: usize> Default for List<T, N> {
     fn default() -> Self {
         Self {
             items: [(); N].map(|_| Default::default()),
-            len: 0,
+            len:   0,
         }
     }
 }
