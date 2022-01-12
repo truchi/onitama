@@ -1,4 +1,5 @@
 use super::*;
+use std::ops::Index;
 
 #[derive(Copy, Clone, Eq, PartialEq, Debug)]
 pub struct Side {
@@ -77,32 +78,7 @@ impl Game {
 
     pub fn plays(&mut self) -> &[Play] {
         if self.plays.is_none() {
-            let mut plays = vec![];
-            let player = self.player;
-            let side = self.side(player);
-
-            for (piece, src) in side.pieces(player) {
-                for (card, r#move) in side.moves() {
-                    if let Some(dest) = src.apply(r#move.1) {
-                        let capture = self.board[dest];
-
-                        if matches!(capture, Some(piece) if piece.player() == player) {
-                            continue;
-                        }
-
-                        plays.push(Play {
-                            piece,
-                            card,
-                            r#move,
-                            src,
-                            dest,
-                            capture,
-                        });
-                    }
-                }
-            }
-
-            self.plays = Some(plays.into());
+            self.plays = Some(self.compute_plays().into());
         }
 
         &(&self.plays.as_ref()).unwrap()[..]
@@ -137,6 +113,37 @@ impl Game {
 
         self.discard_unchecked(card);
     }
+}
+
+impl Game {
+    fn compute_plays(&self) -> Vec<Play> {
+        let mut plays = vec![];
+        let player = self.player;
+        let side = self.side(player);
+
+        for (piece, src) in side.pieces(player) {
+            for (card, r#move) in side.moves() {
+                if let Some(dest) = src.apply(r#move.1) {
+                    let capture = self.board[dest];
+
+                    if matches!(capture, Some(piece) if piece.player() == player) {
+                        continue;
+                    }
+
+                    plays.push(Play {
+                        piece,
+                        card,
+                        r#move,
+                        src,
+                        dest,
+                        capture,
+                    });
+                }
+            }
+        }
+
+        plays
+    }
 
     fn discard_unchecked(&mut self, card: usize) {
         debug_assert!(card < HAND);
@@ -162,5 +169,21 @@ impl Game {
             Red => &mut self.red,
             Blue => &mut self.blue,
         }
+    }
+}
+
+impl Index<Square> for Game {
+    type Output = Option<Piece>;
+
+    fn index(&self, square: Square) -> &Option<Piece> {
+        &self.board[square]
+    }
+}
+
+impl Index<Piece> for Game {
+    type Output = Option<Square>;
+
+    fn index(&self, piece: Piece) -> &Option<Square> {
+        self.side(piece.player()).square(piece)
     }
 }
