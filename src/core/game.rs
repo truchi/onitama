@@ -54,7 +54,6 @@ pub struct Game {
     red: Side,
     blue: Side,
     spare: usize,
-    plays: Option<Box<[Play]>>,
 }
 
 impl Game {
@@ -73,12 +72,24 @@ impl Game {
         distance.0.max(distance.1) as u8
     }
 
-    pub fn plays(&mut self) -> &[Play] {
-        if self.plays.is_none() {
-            self.plays = Some(self.compute_plays().into());
+    pub fn plays(&self) -> Vec<Play> {
+        let mut plays = vec![];
+        let player = self.player;
+        let side = self.side(player);
+
+        for (piece, src) in side.pieces(player) {
+            for ((card, _), (_, r#move)) in side.moves() {
+                if let Some(dest) = src.apply(r#move) {
+                    if matches!(self[dest], Some(piece) if piece.player() == player) {
+                        continue;
+                    }
+
+                    plays.push(Play { card, src, dest });
+                }
+            }
         }
 
-        &(&self.plays.as_ref()).unwrap()[..]
+        plays
     }
 
     pub fn play(&mut self, play: Play) {
@@ -115,26 +126,6 @@ impl Game {
 }
 
 impl Game {
-    fn compute_plays(&self) -> Vec<Play> {
-        let mut plays = vec![];
-        let player = self.player;
-        let side = self.side(player);
-
-        for (piece, src) in side.pieces(player) {
-            for ((card, _), (_, r#move)) in side.moves() {
-                if let Some(dest) = src.apply(r#move) {
-                    if matches!(self[dest], Some(piece) if piece.player() == player) {
-                        continue;
-                    }
-
-                    plays.push(Play { card, src, dest });
-                }
-            }
-        }
-
-        plays
-    }
-
     fn discard_unchecked(&mut self, card: usize) {
         debug_assert!(card < HAND);
 
