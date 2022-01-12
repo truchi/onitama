@@ -8,6 +8,18 @@ pub struct Side {
 }
 
 impl Side {
+    pub fn new(player: Player, cards: [usize; HAND]) -> Self {
+        macro_rules! pieces {
+            ($rank:ident $($file:ident)*) => { [$(Some(Square($file, $rank))),*] };
+        }
+
+        let rank = player.rank();
+        Self {
+            pieces: pieces!(rank A B C D E),
+            cards,
+        }
+    }
+
     pub fn pieces(&self) -> impl '_ + Iterator<Item = (Piece, Square)> {
         self.pieces
             .into_iter()
@@ -63,6 +75,17 @@ pub struct Game {
 }
 
 impl Game {
+    pub fn new(red: [usize; HAND], blue: [usize; HAND], spare: usize) -> Self {
+        Self {
+            winner: None,
+            player: CARDS[spare].stamp,
+            board: Board::default(),
+            red: Side::new(Red, red),
+            blue: Side::new(Blue, blue),
+            spare,
+        }
+    }
+
     pub fn pieces(&self, player: Player) -> impl '_ + Iterator<Item = (Piece, Square)> {
         self[player].pieces()
     }
