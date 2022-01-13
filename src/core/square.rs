@@ -34,8 +34,8 @@ macro_rules! declare {
 }
 
 declare!(
-    File { 0 A   1 B   2 C     3 D    4 E    } vertical:   Vertical   { Down Up    }
-    Rank { 0 One 1 Two 2 Three 3 Four 4 Five } horizontal: Horizontal { Left Right }
+    File { 0 A   1 B   2 C     3 D    4 E    } horizontal: Horizontal   { Left Right }
+    Rank { 0 One 1 Two 2 Three 3 Four 4 Five } vertical:   Vertical     { Down Up    }
 );
 
 #[derive(Copy, Clone, Eq, PartialEq, Debug)]
@@ -51,7 +51,7 @@ impl Square {
     }
 
     pub fn apply(&self, r#move: Move) -> Option<Self> {
-        Some(Self(self.0.apply(r#move.0)?, self.1.apply(r#move.1)?))
+        Some(Self(self.0.apply(r#move.1)?, self.1.apply(r#move.0)?))
     }
 
     pub fn king(player: Player) -> Self {

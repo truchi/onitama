@@ -34,10 +34,13 @@ impl Side {
             .map(move |(i, square)| (Piece::from(i), square))
     }
 
+    pub fn cards(&self) -> [Card; HAND] {
+        [CARDS[self.cards[0]], CARDS[self.cards[1]]]
+    }
+
     pub fn moves(&self) -> impl '_ + Iterator<Item = ((usize, Card), (usize, Move))> {
-        self.cards
-            .iter()
-            .map(|&card| CARDS[card])
+        self.cards()
+            .into_iter()
             .enumerate()
             .map(|(c, card)| {
                 card.moves
@@ -84,6 +87,21 @@ impl Game {
             blue: Side::new(Blue, blue),
             spare,
         }
+    }
+
+    pub fn player(&self) -> Player {
+        self.player
+    }
+
+    pub fn side(&self, player: Player) -> &Side {
+        match player {
+            Red => &self.red,
+            Blue => &self.blue,
+        }
+    }
+
+    pub fn spare(&self) -> Card {
+        CARDS[self.spare]
     }
 
     pub fn pieces(&self, player: Player) -> impl '_ + Iterator<Item = (Piece, Square)> {
@@ -169,14 +187,7 @@ impl Game {
         });
     }
 
-    pub fn side(&self, player: Player) -> &Side {
-        match player {
-            Red => &self.red,
-            Blue => &self.blue,
-        }
-    }
-
-    pub fn side_mut(&mut self, player: Player) -> &mut Side {
+    fn side_mut(&mut self, player: Player) -> &mut Side {
         match player {
             Red => &mut self.red,
             Blue => &mut self.blue,

@@ -6,4 +6,6 @@ mod term;
 pub use self::core::*;
 pub use term::*;
 
-fn main() {}
+fn main() {
+    term::main();
+}
