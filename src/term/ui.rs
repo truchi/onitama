@@ -27,10 +27,16 @@ const WHITE: x::Color = x::Rgb {
     b: 180,
 };
 
+enum State {
+    Card(usize),
+    Square(usize, Square),
+}
+
 pub struct GameUI {
     width:  u16,
     height: u16,
     game:   Game,
+    state:  Option<State>,
 }
 
 impl GameUI {
@@ -43,22 +49,40 @@ impl GameUI {
     const CARD_SQUARE_WIDTH: u16 = 3;
     const CARD_WIDTH: u16 = Self::CARD_SQUARE_WIDTH * SIZE as u16 + 2;
     const HAND_WIDTH: u16 = 2 * Self::CARD_WIDTH + Self::MARGIN;
+    const HEIGHT: u16 = Self::BOARD_HEIGHT + 2 * (Self::CARD_HEIGHT + Self::MARGIN);
     const MARGIN: u16 = 1;
+    const WIDTH: u16 = Self::BOARD_WIDTH + 2 * (Self::CARD_WIDTH + Self::MARGIN);
 
     pub fn new(width: u16, height: u16) -> Self {
         Self {
             width,
             height,
             game: Game::new([8, 9], [10, 11], 12),
+            state: None,
         }
     }
 
-    pub fn render(&self) {
-        self.render_board();
-        self.render_cards();
+    pub fn size(&mut self, width: u16, height: u16) {
+        self.width = width;
+        self.height = height;
     }
 
-    fn render_cards(&self) {
+    pub fn render(&self) {
+        let mut out = stdout();
+        let lock = &mut out.lock();
+
+        self.clear(lock);
+        self.render_board(lock);
+        self.render_cards(lock);
+
+        lock.flush().unwrap();
+    }
+
+    fn clear(&self, lock: &mut StdoutLock) {
+        write!(lock, "{}", x::Clear(x::ClearType::All));
+    }
+
+    fn render_cards(&self, lock: &mut StdoutLock) {
         let red = self.game[Red].cards();
         let blue = self.game[Blue].cards();
 
@@ -81,18 +105,16 @@ impl GameUI {
             board_x1 - Self::MARGIN - Self::CARD_WIDTH
         };
 
-        self.render_card(red[0], x1, yred, Red);
-        self.render_card(red[1], x2, yred, Red);
-        self.render_card(blue[0], x1, yblue, Blue);
-        self.render_card(blue[1], x2, yblue, Blue);
-        self.render_card(spare, spare_x, spare_y, player);
+        self.render_card(lock, red[0], x1, yred, Red);
+        self.render_card(lock, red[1], x2, yred, Red);
+        self.render_card(lock, blue[0], x1, yblue, Blue);
+        self.render_card(lock, blue[1], x2, yblue, Blue);
+        self.render_card(lock, spare, spare_x, spare_y, player);
     }
 
-    fn render_card(&self, card: Card, x: u16, y: u16, player: Player) {
-        self.render_card_borders(x, y, player);
+    fn render_card(&self, lock: &mut StdoutLock, card: Card, x: u16, y: u16, player: Player) {
+        self.render_card_borders(lock, x, y, player);
 
-        let mut out = stdout();
-        let lock = &mut out.lock();
         let ranks = [Five, Four, Three, Two, One];
         let files = [A, B, C, D, E];
 
@@ -155,14 +177,9 @@ impl GameUI {
         name(lock);
         ranks(lock);
         moves(lock);
-
-        lock.flush().unwrap();
     }
 
-    fn render_card_borders(&self, x: u16, mut y: u16, player: Player) {
-        let mut out = stdout();
-        let lock = &mut out.lock();
-
+    fn render_card_borders(&self, lock: &mut StdoutLock, x: u16, mut y: u16, player: Player) {
         let mut line = |lock: &mut StdoutLock, y, l, m, r| {
             to(lock, x, y);
             write!(lock, "{}", l);
@@ -189,13 +206,9 @@ impl GameUI {
             body(lock, y + 1);
             line(lock, y + 2 + SIZE as u16, BL, H, BR);
         }
-
-        lock.flush().unwrap();
     }
 
-    fn render_board(&self) {
-        let mut out = stdout();
-        let lock = &mut out.lock();
+    fn render_board(&self, lock: &mut StdoutLock) {
         let x = (self.width - Self::BOARD_WIDTH) / 2;
         let y = (self.height - Self::BOARD_HEIGHT) / 2;
         let size = SIZE as u16;
@@ -235,8 +248,6 @@ impl GameUI {
         for r in ranks {
             rank(lock, r);
         }
-
-        lock.flush().unwrap();
     }
 }
 
@@ -261,7 +272,7 @@ const REVERSED_UPPER: &[char] = &[
     'ꓕ', 'Ո', 'Ʌ', 'ʍ', 'X', '⅄', 'Z',
 ];
 
-pub fn reverse(str: &str) -> impl '_ + Iterator<Item = char> {
+fn reverse(str: &str) -> impl '_ + Iterator<Item = char> {
     str.bytes().rev().map(|byte| {
         if byte <= b'Z' {
             REVERSED_UPPER[(byte - b'A') as usize]

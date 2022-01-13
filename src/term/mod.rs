@@ -29,6 +29,7 @@ mod x {
 
 use std::io::stdout;
 use std::io::Write;
+use std::process::exit;
 use std::thread::sleep;
 use std::time::Duration;
 use std::time::Instant;
@@ -52,30 +53,27 @@ pub fn main() {
 
 pub fn game_loop() {
     let time = Instant::now();
-    let spf = Duration::from_millis(500);
+    let spf = Duration::from_millis(100);
     let (mut width, mut height) = size();
 
-    loop {
-        x::execute!(stdout(), x::Clear(x::ClearType::All), x::MoveTo(0, 0)).unwrap();
-        // printcr!("hello {:?}", Instant::now() - time);
+    let mut ui = GameUI::new(width, height);
+    ui.render();
 
+    loop {
         while let Some(event) = poll() {
             match event {
-                x::Event::Key(event) => {
-                    // printcr!("{:?}", event);
+                x::Event::Key(event) =>
                     if event.code == x::KeyCode::Esc {
                         leave();
-                        std::process::exit(0);
-                    }
-                }
+                        exit(0);
+                    },
                 x::Event::Mouse(event) => {}
-                x::Event::Resize(w, h) => {
-                    width = w;
-                    height = h;
+                x::Event::Resize(width, height) => {
+                    ui.size(width, height);
+                    ui.render();
                 }
             }
         }
-        GameUI::new(width, height).render();
         sleep(spf);
         stdout().flush().unwrap();
     }
