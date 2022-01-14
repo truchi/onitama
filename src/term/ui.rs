@@ -52,7 +52,9 @@ impl GameUI {
     const HEIGHT: u16 = Self::BOARD_HEIGHT + 2 * (Self::CARD_HEIGHT + Self::MARGIN);
     const MARGIN: u16 = 1;
     const WIDTH: u16 = Self::BOARD_WIDTH + 2 * (Self::CARD_WIDTH + Self::MARGIN);
+}
 
+impl GameUI {
     pub fn new(width: u16, height: u16) -> Self {
         Self {
             width,
@@ -88,44 +90,11 @@ impl GameUI {
 
         lock.flush().unwrap();
     }
+}
 
+impl GameUI {
     fn clear(&self, lock: &mut StdoutLock) {
         write!(lock, "{}", x::Clear(x::ClearType::All));
-    }
-
-    fn board_rect(&self) -> (u16, u16, u16, u16) {
-        let x = (self.width - Self::BOARD_WIDTH) / 2;
-        let y = (self.height - Self::BOARD_HEIGHT) / 2;
-
-        (x, y, x + Self::BOARD_WIDTH, y + Self::BOARD_HEIGHT)
-    }
-
-    fn cards_rect(&self, player: Player) -> [(u16, u16, u16, u16); HAND] {
-        let (_, board_y1, _, board_y2) = self.board_rect();
-        let x1 = (self.width - Self::HAND_WIDTH) / 2;
-        let x2 = x1 + Self::MARGIN + Self::CARD_WIDTH;
-        let y = if player == Red {
-            board_y2 + Self::MARGIN
-        } else {
-            board_y1 - Self::MARGIN - Self::CARD_HEIGHT
-        };
-
-        [
-            (x1, y, x1 + Self::CARD_WIDTH, y + Self::CARD_HEIGHT),
-            (x2, y, x2 + Self::CARD_WIDTH, y + Self::CARD_HEIGHT),
-        ]
-    }
-
-    fn spare_rect(&self) -> (u16, u16, u16, u16) {
-        let (board_x1, _, board_x2, _) = self.board_rect();
-        let y = (self.height - Self::CARD_HEIGHT) / 2;
-        let x = if self.game.player() == Red {
-            board_x2 + Self::MARGIN
-        } else {
-            board_x1 - Self::MARGIN - Self::CARD_WIDTH
-        };
-
-        (x, y, x + Self::CARD_WIDTH, y + Self::CARD_HEIGHT)
     }
 
     fn render_cards(&self, lock: &mut StdoutLock) {
@@ -150,7 +119,6 @@ impl GameUI {
 
         let ranks = [Five, Four, Three, Two, One];
         let files = [A, B, C, D, E];
-
         let x = x + 1;
         let y = y + 1;
         let board_y = if player == Red { y + 1 } else { y };
@@ -277,6 +245,43 @@ impl GameUI {
                 write!(lock, "{}", "      ".on(bg(file, rank)));
             }
         }
+    }
+}
+
+impl GameUI {
+    fn board_rect(&self) -> (u16, u16, u16, u16) {
+        let x = (self.width - Self::BOARD_WIDTH) / 2;
+        let y = (self.height - Self::BOARD_HEIGHT) / 2;
+
+        (x, y, x + Self::BOARD_WIDTH, y + Self::BOARD_HEIGHT)
+    }
+
+    fn cards_rect(&self, player: Player) -> [(u16, u16, u16, u16); HAND] {
+        let (_, board_y1, _, board_y2) = self.board_rect();
+        let x1 = (self.width - Self::HAND_WIDTH) / 2;
+        let x2 = x1 + Self::MARGIN + Self::CARD_WIDTH;
+        let y = if player == Red {
+            board_y2 + Self::MARGIN
+        } else {
+            board_y1 - Self::MARGIN - Self::CARD_HEIGHT
+        };
+
+        [
+            (x1, y, x1 + Self::CARD_WIDTH, y + Self::CARD_HEIGHT),
+            (x2, y, x2 + Self::CARD_WIDTH, y + Self::CARD_HEIGHT),
+        ]
+    }
+
+    fn spare_rect(&self) -> (u16, u16, u16, u16) {
+        let (board_x1, _, board_x2, _) = self.board_rect();
+        let y = (self.height - Self::CARD_HEIGHT) / 2;
+        let x = if self.game.player() == Red {
+            board_x2 + Self::MARGIN
+        } else {
+            board_x1 - Self::MARGIN - Self::CARD_WIDTH
+        };
+
+        (x, y, x + Self::CARD_WIDTH, y + Self::CARD_HEIGHT)
     }
 }
 
