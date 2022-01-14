@@ -29,7 +29,7 @@ const WHITE: x::Color = x::Rgb {
 
 enum State {
     Card(usize),
-    Square(usize, Square),
+    Square(usize, Square, Vec<Square>),
 }
 
 pub struct GameUI {
@@ -69,15 +69,59 @@ impl GameUI {
         self.height = height;
     }
 
-    pub fn handle_click(&mut self, x: u16, y: u16) {
-        match self.state {
-            Some(State::Card(_)) => {}
-            Some(State::Square(..)) => {}
-            None => {
-                //
-            }
+    pub fn handle_click(&mut self, pos: (u16, u16), f: impl FnOnce(usize, Square, Square)) {
+        let contains = |(x1, y1, x2, y2), (x, y)| x1 <= x && x <= x2 && y1 <= y && y <= y2;
+
+        fn click_squares(ui: &mut GameUI) {}
+
+        let board = self.board_rect();
+        let mut squares = self
+            .game
+            .pieces(self.game.player())
+            .map(|(piece, square)| square);
+        let [card0, card1] = self.cards_rect(self.game.player());
+
+        match &self.state {
+            None =>
+                if contains(card0, pos) {
+                    self.state = Some(State::Card(0));
+                } else if contains(card1, pos) {
+                    self.state = Some(State::Card(1));
+                },
+            &Some(State::Card(card)) =>
+                if contains(board, pos) {
+                    if let Some(square) =
+                        squares.find(|&square| contains(self.square_rect(square), pos))
+                    {
+                        let dests = self.game.dests(card, square).collect::<Vec<_>>();
+                        self.state = Some(State::Square(card, square, dests));
+                    }
+                } else if contains(card0, pos) {
+                    self.state = Some(State::Card(0));
+                } else if contains(card1, pos) {
+                    self.state = Some(State::Card(1));
+                } else {
+                    self.state = None;
+                },
+
+            Some(State::Square(card, square, dests)) =>
+                if contains(board, pos) {
+                    if let Some(dest) = dests
+                        .iter()
+                        .find(|&&square| contains(self.square_rect(square), pos))
+                    {
+                        return f(*card, *square, *dest);
+                    }
+                } else if contains(card0, pos) {
+                    self.state = Some(State::Card(0));
+                } else if contains(card1, pos) {
+                    self.state = Some(State::Card(1));
+                } else {
+                    self.state = None;
+                },
         }
-        ()
+
+        self.render();
     }
 
     pub fn render(&self) {
@@ -282,6 +326,19 @@ impl GameUI {
         };
 
         (x, y, x + Self::CARD_WIDTH, y + Self::CARD_HEIGHT)
+    }
+
+    fn square_rect(&self, square: Square) -> (u16, u16, u16, u16) {
+        let (board_x, board_y, ..) = self.board_rect();
+        let x = board_x + square.file() as u16 * Self::BOARD_SQUARE_WIDTH;
+        let y = board_y + square.rank() as u16 * Self::BOARD_SQUARE_HEIGHT;
+
+        (
+            x,
+            y,
+            x + Self::BOARD_SQUARE_WIDTH,
+            y + Self::BOARD_SQUARE_HEIGHT,
+        )
     }
 }
 
