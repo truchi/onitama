@@ -62,9 +62,20 @@ impl GameUI {
         }
     }
 
-    pub fn size(&mut self, width: u16, height: u16) {
+    pub fn set_size(&mut self, width: u16, height: u16) {
         self.width = width;
         self.height = height;
+    }
+
+    pub fn handle_click(&mut self, x: u16, y: u16) {
+        match self.state {
+            Some(State::Card(_)) => {}
+            Some(State::Square(..)) => {}
+            None => {
+                //
+            }
+        }
+        ()
     }
 
     pub fn render(&self) {
@@ -82,34 +93,56 @@ impl GameUI {
         write!(lock, "{}", x::Clear(x::ClearType::All));
     }
 
-    fn render_cards(&self, lock: &mut StdoutLock) {
-        let red = self.game[Red].cards();
-        let blue = self.game[Blue].cards();
+    fn board_rect(&self) -> (u16, u16, u16, u16) {
+        let x = (self.width - Self::BOARD_WIDTH) / 2;
+        let y = (self.height - Self::BOARD_HEIGHT) / 2;
 
-        let board_x1 = (self.width - Self::BOARD_WIDTH) / 2;
-        let board_y1 = (self.height - Self::BOARD_HEIGHT) / 2;
-        let board_x2 = board_x1 + Self::BOARD_WIDTH;
-        let board_y2 = board_y1 + Self::BOARD_HEIGHT;
+        (x, y, x + Self::BOARD_WIDTH, y + Self::BOARD_HEIGHT)
+    }
 
+    fn cards_rect(&self, player: Player) -> [(u16, u16, u16, u16); HAND] {
+        let (_, board_y1, _, board_y2) = self.board_rect();
         let x1 = (self.width - Self::HAND_WIDTH) / 2;
-        let x2 = x1 + Self::CARD_WIDTH + Self::MARGIN;
-        let yblue = board_y1 - Self::MARGIN - Self::CARD_HEIGHT;
-        let yred = board_y2 + Self::MARGIN;
+        let x2 = x1 + Self::MARGIN + Self::CARD_WIDTH;
+        let y = if player == Red {
+            board_y2 + Self::MARGIN
+        } else {
+            board_y1 - Self::MARGIN - Self::CARD_HEIGHT
+        };
 
-        let spare = self.game.spare();
-        let player = self.game.player();
-        let spare_y = (self.height - Self::CARD_HEIGHT) / 2;
-        let spare_x = if player == Red {
+        [
+            (x1, y, x1 + Self::CARD_WIDTH, y + Self::CARD_HEIGHT),
+            (x2, y, x2 + Self::CARD_WIDTH, y + Self::CARD_HEIGHT),
+        ]
+    }
+
+    fn spare_rect(&self) -> (u16, u16, u16, u16) {
+        let (board_x1, _, board_x2, _) = self.board_rect();
+        let y = (self.height - Self::CARD_HEIGHT) / 2;
+        let x = if self.game.player() == Red {
             board_x2 + Self::MARGIN
         } else {
             board_x1 - Self::MARGIN - Self::CARD_WIDTH
         };
 
-        self.render_card(lock, red[0], x1, yred, Red);
-        self.render_card(lock, red[1], x2, yred, Red);
-        self.render_card(lock, blue[0], x1, yblue, Blue);
-        self.render_card(lock, blue[1], x2, yblue, Blue);
-        self.render_card(lock, spare, spare_x, spare_y, player);
+        (x, y, x + Self::CARD_WIDTH, y + Self::CARD_HEIGHT)
+    }
+
+    fn render_cards(&self, lock: &mut StdoutLock) {
+        let red = self.game[Red].cards();
+        let blue = self.game[Blue].cards();
+
+        let [(rx1, ry1, ..), (rx2, ry2, ..)] = self.cards_rect(Red);
+        let [(bx1, by1, ..), (bx2, by2, ..)] = self.cards_rect(Blue);
+        let (sx, sy, ..) = self.spare_rect();
+        let player = self.game.player();
+        let spare = self.game.spare();
+
+        self.render_card(lock, red[0], rx1, ry1, Red);
+        self.render_card(lock, red[1], rx2, ry2, Red);
+        self.render_card(lock, blue[0], bx1, by1, Blue);
+        self.render_card(lock, blue[1], bx2, by2, Blue);
+        self.render_card(lock, spare, sx, sy, player);
     }
 
     fn render_card(&self, lock: &mut StdoutLock, card: Card, x: u16, y: u16, player: Player) {
@@ -136,7 +169,7 @@ impl GameUI {
             }
         };
 
-        let mut ranks = |lock: &mut StdoutLock| {
+        let mut board = |lock: &mut StdoutLock| {
             for rank in ranks {
                 let y = board_y + SIZE as u16 - rank as u16 - 1;
 
@@ -175,7 +208,7 @@ impl GameUI {
         };
 
         name(lock);
-        ranks(lock);
+        board(lock);
         moves(lock);
     }
 
@@ -215,7 +248,7 @@ impl GameUI {
         let ranks = [Five, Four, Three, Two, One];
         let files = [A, B, C, D, E];
 
-        let mut rank = |lock: &mut StdoutLock, rank: Rank| {
+        for rank in ranks {
             let y = y + 3 * (size - 1 - rank as u16);
 
             to(lock, x, y);
@@ -243,10 +276,6 @@ impl GameUI {
             for file in files {
                 write!(lock, "{}", "      ".on(bg(file, rank)));
             }
-        };
-
-        for r in ranks {
-            rank(lock, r);
         }
     }
 }

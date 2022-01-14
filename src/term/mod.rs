@@ -13,6 +13,8 @@ mod x {
     pub use crossterm::event::EnableMouseCapture;
     pub use crossterm::event::Event;
     pub use crossterm::event::KeyCode;
+    pub use crossterm::event::MouseButton;
+    pub use crossterm::event::MouseEventKind;
     pub use crossterm::execute;
     pub use crossterm::queue;
     pub use crossterm::style::Color;
@@ -67,9 +69,13 @@ pub fn game_loop() {
                         leave();
                         exit(0);
                     },
-                x::Event::Mouse(event) => {}
+                x::Event::Mouse(event) => {
+                    if event.kind == x::MouseEventKind::Down(x::MouseButton::Left) {
+                        ui.handle_click(event.column, event.row);
+                    }
+                }
                 x::Event::Resize(width, height) => {
-                    ui.size(width, height);
+                    ui.set_size(width, height);
                     ui.render();
                 }
             }
