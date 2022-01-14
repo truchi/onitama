@@ -38,19 +38,6 @@ impl Side {
         [CARDS[self.cards[0]], CARDS[self.cards[1]]]
     }
 
-    pub fn moves(&self) -> impl '_ + Iterator<Item = ((usize, Card), (usize, Move))> {
-        self.cards()
-            .into_iter()
-            .enumerate()
-            .map(|(c, card)| {
-                card.moves
-                    .iter()
-                    .enumerate()
-                    .map(move |(m, &mov)| ((c, card), (m, mov)))
-            })
-            .flatten()
-    }
-
     pub fn square(&self, piece: Piece) -> &Option<Square> {
         &self.pieces[piece.index()]
     }
@@ -119,24 +106,37 @@ impl Game {
         distance.0.max(distance.1) as u8
     }
 
-    pub fn plays(&self) -> Vec<Play> {
-        let mut plays = vec![];
+    pub fn plays(&self) -> impl '_ + Iterator<Item = Play> {
+        let side = self.side(self.player);
+        let mut iter = side
+            .pieces()
+            .map(|(_, src)| (0..HAND).map(move |card| (card, src)))
+            .flatten();
+
+        std::iter::from_fn(move || {
+            let (card, src) = iter.next()?;
+            Some(
+                self.dests(card, src)
+                    .map(move |dest| Play { card, src, dest }),
+            )
+        })
+        .flatten()
+    }
+
+    pub fn dests(&self, card: usize, src: Square) -> impl '_ + Iterator<Item = Square> {
         let player = self.player;
         let side = self.side(player);
+        let card = side.cards()[card];
+        let mut moves = card.moves.iter();
 
-        for (_, src) in side.pieces() {
-            for ((card, _), (_, r#move)) in side.moves() {
-                if let Some(dest) = src.apply(r#move) {
-                    if matches!(self[dest], Some((p, _)) if p == player) {
-                        continue;
-                    }
+        let has_piece = move |square| matches!(self[square], Some((p, _)) if p == player);
+        debug_assert!(has_piece(src));
 
-                    plays.push(Play { card, src, dest });
-                }
+        std::iter::from_fn(move || loop {
+            if let Some(dest) = src.apply(*moves.next()?).filter(|&dest| !has_piece(dest)) {
+                return Some(dest);
             }
-        }
-
-        plays
+        })
     }
 
     pub fn play(&mut self, play: Play) {
@@ -168,7 +168,7 @@ impl Game {
 
     pub fn discard(&mut self, card: usize) {
         debug_assert!(self.winner.is_none());
-        debug_assert!(self.plays().is_empty());
+        debug_assert!(self.plays().next().is_none());
 
         self.discard_unchecked(card);
     }
