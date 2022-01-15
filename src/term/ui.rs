@@ -26,6 +26,7 @@ const WHITE: x::Color = x::Rgb {
     g: 180,
     b: 180,
 };
+const TINT: u8 = 75;
 
 enum State {
     Card(usize),
@@ -70,56 +71,65 @@ impl GameUI {
     }
 
     pub fn handle_click(&mut self, pos: (u16, u16), f: impl FnOnce(usize, Square, Square)) {
-        let contains = |(x1, y1, x2, y2), (x, y)| x1 <= x && x <= x2 && y1 <= y && y <= y2;
-
-        fn click_squares(ui: &mut GameUI) {}
-
-        let board = self.board_rect();
-        let mut squares = self
-            .game
-            .pieces(self.game.player())
-            .map(|(piece, square)| square);
-        let [card0, card1] = self.cards_rect(self.game.player());
-
-        match &self.state {
-            None =>
-                if contains(card0, pos) {
-                    self.state = Some(State::Card(0));
-                } else if contains(card1, pos) {
-                    self.state = Some(State::Card(1));
-                },
-            &Some(State::Card(card)) =>
-                if contains(board, pos) {
-                    if let Some(square) =
-                        squares.find(|&square| contains(self.square_rect(square), pos))
-                    {
-                        let dests = self.game.dests(card, square).collect::<Vec<_>>();
-                        self.state = Some(State::Square(card, square, dests));
-                    }
-                } else if contains(card0, pos) {
-                    self.state = Some(State::Card(0));
-                } else if contains(card1, pos) {
-                    self.state = Some(State::Card(1));
-                } else {
-                    self.state = None;
-                },
-
-            Some(State::Square(card, square, dests)) =>
-                if contains(board, pos) {
-                    if let Some(dest) = dests
-                        .iter()
-                        .find(|&&square| contains(self.square_rect(square), pos))
-                    {
-                        return f(*card, *square, *dest);
-                    }
-                } else if contains(card0, pos) {
-                    self.state = Some(State::Card(0));
-                } else if contains(card1, pos) {
-                    self.state = Some(State::Card(1));
-                } else {
-                    self.state = None;
-                },
+        fn it_contains(mut it: impl Iterator<Item = Square>, square: Square) -> bool {
+            it.find(|&s| s == square).is_some()
         }
+
+        let rect_contains = |(x1, y1, x2, y2), (x, y)| x1 <= x && x <= x2 && y1 <= y && y <= y2;
+        let state_square =
+            |card, src| State::Square(card, src, self.game.dests(card, src).collect::<Vec<_>>());
+
+        let player = self.game.player();
+        let board = self.board_rect();
+        let [pc0, pc1] = self.cards_rect(player);
+        let [oc0, oc1] = self.cards_rect(!player);
+        let mut pieces = self.game[player].pieces().map(|(_, square)| square);
+
+        enum Clicked {
+            Square(Square),
+            Card(Player, usize),
+        };
+
+        let clicked = if rect_contains(board, pos) {
+            Some(Clicked::Square(
+                Square::all()
+                    .find(|&square| rect_contains(self.square_rect(square), pos))
+                    .unwrap(),
+            ))
+        } else if rect_contains(pc0, pos) {
+            Some(Clicked::Card(player, 0))
+        } else if rect_contains(pc1, pos) {
+            Some(Clicked::Card(player, 1))
+        } else if rect_contains(oc0, pos) {
+            Some(Clicked::Card(!player, 0))
+        } else if rect_contains(oc1, pos) {
+            Some(Clicked::Card(!player, 1))
+        } else {
+            None
+        };
+
+        self.state = match &self.state {
+            None => match clicked {
+                Some(Clicked::Card(p, card)) if p == player => Some(State::Card(card)),
+                _ => None,
+            },
+            Some(State::Card(card)) => match clicked {
+                Some(Clicked::Card(p, card)) if p == player => Some(State::Card(card)),
+                Some(Clicked::Square(src)) if it_contains(pieces, src) =>
+                    Some(state_square(*card, src)),
+                Some(Clicked::Square(square)) => Some(State::Card(*card)),
+                _ => None,
+            },
+            Some(State::Square(card, src, dests)) => match clicked {
+                Some(Clicked::Card(p, card)) if p == player => Some(State::Card(card)),
+                Some(Clicked::Square(src)) if it_contains(pieces, src) =>
+                    Some(state_square(*card, src)),
+                Some(Clicked::Square(dest)) if it_contains(dests.iter().copied(), dest) =>
+                    return f(*card, *src, dest),
+                Some(Clicked::Square(square)) => Some(State::Card(*card)),
+                _ => None,
+            },
+        };
 
         self.render();
     }
@@ -151,15 +161,31 @@ impl GameUI {
         let player = self.game.player();
         let spare = self.game.spare();
 
-        self.render_card(lock, red[0], rx1, ry1, Red);
-        self.render_card(lock, red[1], rx2, ry2, Red);
-        self.render_card(lock, blue[0], bx1, by1, Blue);
-        self.render_card(lock, blue[1], bx2, by2, Blue);
-        self.render_card(lock, spare, sx, sy, player);
+        let selected = match self.state {
+            None => None,
+            Some(State::Card(card)) => Some(card),
+            Some(State::Square(card, ..)) => Some(card),
+        };
+
+        let is_selected = |p, card| selected == Some(card) && player == p;
+
+        self.render_card(lock, red[0], rx1, ry1, Red, is_selected(Red, 0));
+        self.render_card(lock, red[1], rx2, ry2, Red, is_selected(Red, 1));
+        self.render_card(lock, blue[0], bx1, by1, Blue, is_selected(Blue, 0));
+        self.render_card(lock, blue[1], bx2, by2, Blue, is_selected(Blue, 1));
+        self.render_card(lock, spare, sx, sy, player, false);
     }
 
-    fn render_card(&self, lock: &mut StdoutLock, card: Card, x: u16, y: u16, player: Player) {
-        self.render_card_borders(lock, x, y, player);
+    fn render_card(
+        &self,
+        lock: &mut StdoutLock,
+        card: Card,
+        x: u16,
+        y: u16,
+        player: Player,
+        is_selected: bool,
+    ) {
+        self.render_card_borders(lock, x, y, player, is_selected);
 
         let ranks = [Five, Four, Three, Two, One];
         let files = [A, B, C, D, E];
@@ -224,21 +250,38 @@ impl GameUI {
         moves(lock);
     }
 
-    fn render_card_borders(&self, lock: &mut StdoutLock, x: u16, mut y: u16, player: Player) {
-        let mut line = |lock: &mut StdoutLock, y, l, m, r| {
-            to(lock, x, y);
-            write!(lock, "{}", l);
-            for _ in 0..3 * SIZE {
-                write!(lock, "{}", m);
+    fn render_card_borders(
+        &self,
+        lock: &mut StdoutLock,
+        x: u16,
+        mut y: u16,
+        player: Player,
+        is_selected: bool,
+    ) {
+        let color = if is_selected {
+            match player {
+                Red => RED,
+                Blue => BLUE,
             }
-            write!(lock, "{}", r);
+        } else {
+            x::Color::Reset
+        };
+
+        let mut line = |lock: &mut StdoutLock, y, l: char, m: char, r: char| {
+            to(lock, x, y);
+            write!(lock, "{}", l.with(color));
+            for _ in 0..3 * SIZE {
+                write!(lock, "{}", m.with(color));
+            }
+            write!(lock, "{}", r.with(color));
         };
 
         let mut body = |lock: &mut StdoutLock, y| {
             for i in 0..=SIZE as u16 {
                 let y = y + i;
                 let x2 = x + 3 * SIZE as u16 + 1;
-                write!(lock, "{}{}{}{}", x::MoveTo(x, y), V, x::MoveTo(x2, y), V);
+                let v = V.with(color);
+                write!(lock, "{}{}{}{}", x::MoveTo(x, y), v, x::MoveTo(x2, y), v);
             }
         };
 
@@ -260,17 +303,27 @@ impl GameUI {
         let ranks = [Five, Four, Three, Two, One];
         let files = [A, B, C, D, E];
 
+        let tinted_bg = |file, rank| {
+            let bg = bg(file, rank);
+
+            if self.is_active(Square(file, rank)) {
+                tint(bg, self.game.player())
+            } else {
+                bg
+            }
+        };
+
         for rank in ranks {
             let y = y + 3 * (size - 1 - rank as u16);
 
             to(lock, x, y);
             for file in files {
-                write!(lock, "{}", "      ".on(bg(file, rank)));
+                write!(lock, "{}", "      ".on(tinted_bg(file, rank)));
             }
 
             to(lock, x, y + 1);
             for file in files {
-                let bg = bg(file, rank);
+                let bg = tinted_bg(file, rank);
                 let center = match self.game[Square(file, rank)] {
                     None => " ".on(bg),
                     Some((Red, King)) => KING.with(RED),
@@ -286,13 +339,21 @@ impl GameUI {
 
             to(lock, x, y + 2);
             for file in files {
-                write!(lock, "{}", "      ".on(bg(file, rank)));
+                write!(lock, "{}", "      ".on(tinted_bg(file, rank)));
             }
         }
     }
 }
 
 impl GameUI {
+    fn is_active(&self, square: Square) -> bool {
+        if let Some(State::Square(_, src, dests)) = &self.state {
+            square == *src || dests.contains(&square)
+        } else {
+            false
+        }
+    }
+
     fn board_rect(&self) -> (u16, u16, u16, u16) {
         let x = (self.width - Self::BOARD_WIDTH) / 2;
         let y = (self.height - Self::BOARD_HEIGHT) / 2;
@@ -330,8 +391,12 @@ impl GameUI {
 
     fn square_rect(&self, square: Square) -> (u16, u16, u16, u16) {
         let (board_x, board_y, ..) = self.board_rect();
-        let x = board_x + square.file() as u16 * Self::BOARD_SQUARE_WIDTH;
-        let y = board_y + square.rank() as u16 * Self::BOARD_SQUARE_HEIGHT;
+
+        let file = square.file() as u16;
+        let rank = SIZE as u16 - square.rank() as u16 - 1;
+
+        let x = board_x + file * Self::BOARD_SQUARE_WIDTH;
+        let y = board_y + rank * Self::BOARD_SQUARE_HEIGHT;
 
         (
             x,
@@ -348,6 +413,21 @@ fn bg(file: File, rank: Rank) -> x::Color {
     } else {
         WHITE
     }
+}
+
+fn tint(mut color: x::Color, player: Player) -> x::Color {
+    if let x::Color::Rgb { r, g, b } = &mut color {
+        let channel = match player {
+            Red => r,
+            Blue => b,
+        };
+
+        *channel = channel.saturating_add(TINT);
+    } else {
+        unreachable!();
+    }
+
+    color
 }
 
 fn to(lock: &mut StdoutLock, x: u16, y: u16) {

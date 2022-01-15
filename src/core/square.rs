@@ -18,6 +18,10 @@ macro_rules! declare {
                 })
                 .ok()
             }
+
+            pub fn all() -> [Self; SIZE] {
+                [$($V),*]
+            }
         }
 
         impl TryFrom<usize> for $Type {
@@ -56,6 +60,13 @@ impl Square {
 
     pub fn king(player: Player) -> Self {
         Self(C, player.rank())
+    }
+
+    pub fn all() -> impl Iterator<Item = Self> {
+        File::all()
+            .into_iter()
+            .map(|file| Rank::all().into_iter().map(move |rank| Square(file, rank)))
+            .flatten()
     }
 }
 

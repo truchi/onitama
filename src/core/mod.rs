@@ -40,6 +40,18 @@ impl Player {
             Blue => Red,
         };
     }
+
+    pub fn flipper(&self) -> fn(&Move) -> Move {
+        if *self == Red {
+            |mov| *mov
+        } else {
+            |mov| {
+                let mut mov = *mov;
+                mov.flip();
+                mov
+            }
+        }
+    }
 }
 
 impl Not for Player {

@@ -127,13 +127,13 @@ impl Game {
         let player = self.player;
         let side = self.side(player);
         let card = side.cards()[card];
-        let mut moves = card.moves.iter();
+        let mut moves = card.moves.iter().map(player.flipper());
 
         let has_piece = move |square| matches!(self[square], Some((p, _)) if p == player);
         debug_assert!(has_piece(src));
 
         std::iter::from_fn(move || loop {
-            if let Some(dest) = src.apply(*moves.next()?).filter(|&dest| !has_piece(dest)) {
+            if let Some(dest) = src.apply(moves.next()?).filter(|&dest| !has_piece(dest)) {
                 return Some(dest);
             }
         })

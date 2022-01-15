@@ -71,7 +71,11 @@ pub fn game_loop() {
                     },
                 x::Event::Mouse(event) => {
                     if event.kind == x::MouseEventKind::Down(x::MouseButton::Left) {
-                        ui.handle_click((event.column, event.row), |card, src, dest| ());
+                        ui.handle_click((event.column, event.row), |card, src, dest| {
+                            leave();
+                            dbg!(card, src, dest);
+                            panic!();
+                        });
                     }
                 }
                 x::Event::Resize(width, height) => {
