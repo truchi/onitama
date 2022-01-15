@@ -84,7 +84,7 @@ impl GameUI {
         let board = self.board_rect();
         let [pc0, pc1] = self.cards_rect(player);
         let [oc0, oc1] = self.cards_rect(!player);
-        let pieces = self.game[player].pieces().map(|(_, square)| square);
+        let pieces = self.game[player].squares();
 
         enum Clicked {
             Square(Square),

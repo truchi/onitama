@@ -3,9 +3,9 @@ use super::*;
 pub use Piece::*;
 #[derive(Copy, Clone, Eq, PartialEq, Debug)]
 pub enum Piece {
-    King,
     PawnA,
     PawnB,
+    King,
     PawnD,
     PawnE,
 }
@@ -29,9 +29,9 @@ impl Piece {
 impl From<usize> for Piece {
     fn from(index: usize) -> Self {
         match index {
-            0 => King,
-            1 => PawnA,
-            2 => PawnB,
+            0 => PawnA,
+            1 => PawnB,
+            2 => King,
             3 => PawnD,
             4 => PawnE,
             _ => panic!(),

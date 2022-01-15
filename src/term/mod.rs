@@ -41,7 +41,7 @@ pub fn main() {
     leave();
 }
 
-pub fn game_loop() {
+fn game_loop() {
     let spf = Duration::from_millis(100);
     let (width, height) = size();
 
