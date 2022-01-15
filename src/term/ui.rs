@@ -1,5 +1,4 @@
 use super::*;
-use std::fmt::Display;
 use std::io::StdoutLock;
 use x::Stylize;
 
@@ -11,8 +10,6 @@ const TL: char = '╭';
 const TR: char = '╮';
 const BL: char = '╰';
 const BR: char = '╯';
-const VR: char = '├';
-const VL: char = '┤';
 const HH: char = '━';
 const HTL: char = '┍';
 const HTR: char = '┑';
@@ -87,12 +84,12 @@ impl GameUI {
         let board = self.board_rect();
         let [pc0, pc1] = self.cards_rect(player);
         let [oc0, oc1] = self.cards_rect(!player);
-        let mut pieces = self.game[player].pieces().map(|(_, square)| square);
+        let pieces = self.game[player].pieces().map(|(_, square)| square);
 
         enum Clicked {
             Square(Square),
             Card(Player, usize),
-        };
+        }
 
         let clicked = if rect_contains(board, pos) {
             Some(Clicked::Square(
@@ -121,7 +118,7 @@ impl GameUI {
                 Some(Clicked::Card(p, card)) if p == player => Some(State::Card(card)),
                 Some(Clicked::Square(src)) if it_contains(pieces, src) =>
                     Some(state_square(*card, src)),
-                Some(Clicked::Square(square)) => Some(State::Card(*card)),
+                Some(Clicked::Square(_)) => Some(State::Card(*card)),
                 _ => None,
             },
             Some(State::Square(card, src, dests)) => match clicked {
@@ -130,7 +127,7 @@ impl GameUI {
                     Some(state_square(*card, src)),
                 Some(Clicked::Square(dest)) if it_contains(dests.iter().copied(), dest) =>
                     return Some(f(*card, *src, dest)),
-                Some(Clicked::Square(square)) => Some(State::Card(*card)),
+                Some(Clicked::Square(_)) => Some(State::Card(*card)),
                 _ => None,
             },
         };
@@ -140,7 +137,7 @@ impl GameUI {
     }
 
     pub fn render(&self) {
-        let mut out = stdout();
+        let out = stdout();
         let lock = &mut out.lock();
 
         self.clear(lock);
@@ -153,7 +150,7 @@ impl GameUI {
 
 impl GameUI {
     fn clear(&self, lock: &mut StdoutLock) {
-        write!(lock, "{}", x::Clear(x::ClearType::All));
+        write!(lock, "{}", x::Clear(x::ClearType::All)).unwrap();
     }
 
     fn render_cards(&self, lock: &mut StdoutLock) {
@@ -198,21 +195,21 @@ impl GameUI {
         let y = y + 1;
         let board_y = if player == Red { y + 1 } else { y };
 
-        let mut name = |lock: &mut StdoutLock| {
+        let name = |lock: &mut StdoutLock| {
             if player == Red {
                 to(lock, x, y);
-                write!(lock, "{}", card.name);
+                write!(lock, "{}", card.name).unwrap();
             } else {
                 let len = card.name.len();
                 to(lock, x + 3 * SIZE as u16 - len as u16, y + SIZE as u16);
 
                 for char in reverse(card.name) {
-                    write!(lock, "{}", char);
+                    write!(lock, "{}", char).unwrap();
                 }
             }
         };
 
-        let mut board = |lock: &mut StdoutLock| {
+        let board = |lock: &mut StdoutLock| {
             for rank in ranks {
                 let y = board_y + SIZE as u16 - rank as u16 - 1;
 
@@ -225,14 +222,14 @@ impl GameUI {
                         Blue => BLUE,
                     };
 
-                    write!(lock, "{}", " ".on(bg));
-                    write!(lock, "{}", center.with(fg).on(bg));
-                    write!(lock, "{}", " ".on(bg));
+                    write!(lock, "{}", " ".on(bg)).unwrap();
+                    write!(lock, "{}", center.with(fg).on(bg)).unwrap();
+                    write!(lock, "{}", " ".on(bg)).unwrap();
                 }
             }
         };
 
-        let mut moves = |lock: &mut StdoutLock| {
+        let moves = |lock: &mut StdoutLock| {
             for mov in card.moves {
                 let mut mov = *mov;
                 if player == Blue {
@@ -246,7 +243,7 @@ impl GameUI {
                 let y = board_y + SIZE as u16 - rank as u16 - 1;
 
                 to(lock, x, y);
-                write!(lock, "{}", "*".with(fg).on(bg));
+                write!(lock, "{}", "*".with(fg).on(bg)).unwrap();
             }
         };
 
@@ -259,7 +256,7 @@ impl GameUI {
         &self,
         lock: &mut StdoutLock,
         x: u16,
-        mut y: u16,
+        y: u16,
         player: Player,
         is_selected: bool,
     ) {
@@ -272,21 +269,21 @@ impl GameUI {
             x::Color::Reset
         };
 
-        let mut line = |lock: &mut StdoutLock, y, l: char, m: char, r: char| {
+        let line = |lock: &mut StdoutLock, y, l: char, m: char, r: char| {
             to(lock, x, y);
-            write!(lock, "{}", l.with(color));
+            write!(lock, "{}", l.with(color)).unwrap();
             for _ in 0..3 * SIZE {
-                write!(lock, "{}", m.with(color));
+                write!(lock, "{}", m.with(color)).unwrap();
             }
-            write!(lock, "{}", r.with(color));
+            write!(lock, "{}", r.with(color)).unwrap();
         };
 
-        let mut body = |lock: &mut StdoutLock, y| {
+        let body = |lock: &mut StdoutLock, y| {
             for i in 0..=SIZE as u16 {
                 let y = y + i;
                 let x2 = x + 3 * SIZE as u16 + 1;
                 let v = V.with(color);
-                write!(lock, "{}{}{}{}", x::MoveTo(x, y), v, x::MoveTo(x2, y), v);
+                write!(lock, "{}{}{}{}", x::MoveTo(x, y), v, x::MoveTo(x2, y), v).unwrap();
             }
         };
 
@@ -324,7 +321,7 @@ impl GameUI {
 
             to(lock, x, y);
             for file in files {
-                write!(lock, "{}", "      ".on(tinted_bg(file, rank)));
+                write!(lock, "{}", "      ".on(tinted_bg(file, rank))).unwrap();
             }
 
             to(lock, x, y + 1);
@@ -338,14 +335,14 @@ impl GameUI {
                     Some((Blue, _)) => PAWN.with(BLUE),
                 };
 
-                write!(lock, "{}", "  ".on(bg));
-                write!(lock, "{}", center.on(bg).bold());
-                write!(lock, "{}", "   ".on(bg));
+                write!(lock, "{}", "  ".on(bg)).unwrap();
+                write!(lock, "{}", center.on(bg).bold()).unwrap();
+                write!(lock, "{}", "   ".on(bg)).unwrap();
             }
 
             to(lock, x, y + 2);
             for file in files {
-                write!(lock, "{}", "      ".on(tinted_bg(file, rank)));
+                write!(lock, "{}", "      ".on(tinted_bg(file, rank))).unwrap();
             }
         }
     }
@@ -422,7 +419,7 @@ fn bg(file: File, rank: Rank) -> x::Color {
 }
 
 fn tint(mut color: x::Color, player: Player) -> x::Color {
-    if let x::Color::Rgb { r, g, b } = &mut color {
+    if let x::Color::Rgb { r, b, .. } = &mut color {
         let channel = match player {
             Red => r,
             Blue => b,
@@ -437,7 +434,7 @@ fn tint(mut color: x::Color, player: Player) -> x::Color {
 }
 
 fn to(lock: &mut StdoutLock, x: u16, y: u16) {
-    write!(lock, "{}", x::MoveTo(x, y));
+    write!(lock, "{}", x::MoveTo(x, y)).unwrap();
 }
 
 const REVERSED_LOWER: &[char] = &[

@@ -34,15 +34,6 @@ use std::io::Write;
 use std::process::exit;
 use std::thread::sleep;
 use std::time::Duration;
-use std::time::Instant;
-
-macro_rules! printcr {
-    () => (print!("\r\n"));
-    ($($arg:tt)*) => { {
-        print!($($arg)*);
-        print!("\r\n")
-    }};
-}
 
 pub fn main() {
     enter();
@@ -51,9 +42,8 @@ pub fn main() {
 }
 
 pub fn game_loop() {
-    let time = Instant::now();
     let spf = Duration::from_millis(100);
-    let (mut width, mut height) = size();
+    let (width, height) = size();
 
     let mut game = Game::new([8, 9], [10, 11], 12);
     let mut ui = GameUI::new(width, height, game);

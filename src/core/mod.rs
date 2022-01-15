@@ -15,8 +15,6 @@ pub use player::*;
 pub use r#move::*;
 pub use square::*;
 
-use utils::*;
-
 macro_rules! card {
     ($name:literal $stamp:ident [$($move:expr,)*]) => {
         Card { name: $name, stamp: $stamp, moves: &[ $( Move($move.0, $move.1), )* ] }
