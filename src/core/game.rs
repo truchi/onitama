@@ -54,7 +54,7 @@ pub struct Play {
     pub dest: Square,
 }
 
-#[derive(Clone, Eq, PartialEq, Debug)]
+#[derive(Copy, Clone, Eq, PartialEq, Debug)]
 pub struct Game {
     winner: Option<Player>,
     player: Player,
@@ -139,7 +139,7 @@ impl Game {
         })
     }
 
-    pub fn play(&mut self, play: Play) {
+    pub fn play(&mut self, play: Play) -> Option<Player> {
         debug_assert!(self.winner.is_none());
 
         let (player, piece) = self[play.src].unwrap();
@@ -157,6 +157,9 @@ impl Game {
         // Update hand
         self.discard_unchecked(play.card);
 
+        // Update player
+        self.player = !player;
+
         // Update winner
         let stone = capture == Some((!player, King));
         let stream = self[Square::king(!player)] == Some((player, King));
@@ -164,6 +167,8 @@ impl Game {
         if stone || stream {
             self.winner = Some(player);
         }
+
+        self.winner
     }
 
     pub fn discard(&mut self, card: usize) {

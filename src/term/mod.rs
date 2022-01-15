@@ -45,9 +45,6 @@ macro_rules! printcr {
 }
 
 pub fn main() {
-    // dbg!(C.apply(Right(0)));
-    // dbg!(Three.apply(Up(1)));
-    // dbg!(Square(C, Three).apply(Move(Up(2), Right(0))));
     enter();
     game_loop();
     leave();
@@ -58,7 +55,8 @@ pub fn game_loop() {
     let spf = Duration::from_millis(100);
     let (mut width, mut height) = size();
 
-    let mut ui = GameUI::new(width, height);
+    let mut game = Game::new([8, 9], [10, 11], 12);
+    let mut ui = GameUI::new(width, height, game);
     ui.render();
 
     loop {
@@ -71,11 +69,22 @@ pub fn game_loop() {
                     },
                 x::Event::Mouse(event) => {
                     if event.kind == x::MouseEventKind::Down(x::MouseButton::Left) {
-                        ui.handle_click((event.column, event.row), |card, src, dest| {
-                            leave();
-                            dbg!(card, src, dest);
-                            panic!();
-                        });
+                        if let Some(play) =
+                            ui.handle_click((event.column, event.row), |card, src, dest| Play {
+                                card,
+                                src,
+                                dest,
+                            })
+                        {
+                            if let Some(winner) = game.play(play) {
+                                leave();
+                                println!("{:?} wins", winner);
+                                exit(0);
+                            } else {
+                                ui = GameUI::new(width, height, game);
+                                ui.render();
+                            }
+                        }
                     }
                 }
                 x::Event::Resize(width, height) => {

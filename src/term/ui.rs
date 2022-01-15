@@ -56,11 +56,11 @@ impl GameUI {
 }
 
 impl GameUI {
-    pub fn new(width: u16, height: u16) -> Self {
+    pub fn new(width: u16, height: u16, game: Game) -> Self {
         Self {
             width,
             height,
-            game: Game::new([8, 9], [10, 11], 12),
+            game,
             state: None,
         }
     }
@@ -70,7 +70,11 @@ impl GameUI {
         self.height = height;
     }
 
-    pub fn handle_click(&mut self, pos: (u16, u16), f: impl FnOnce(usize, Square, Square)) {
+    pub fn handle_click<T>(
+        &mut self,
+        pos: (u16, u16),
+        f: impl FnOnce(usize, Square, Square) -> T,
+    ) -> Option<T> {
         fn it_contains(mut it: impl Iterator<Item = Square>, square: Square) -> bool {
             it.find(|&s| s == square).is_some()
         }
@@ -125,13 +129,14 @@ impl GameUI {
                 Some(Clicked::Square(src)) if it_contains(pieces, src) =>
                     Some(state_square(*card, src)),
                 Some(Clicked::Square(dest)) if it_contains(dests.iter().copied(), dest) =>
-                    return f(*card, *src, dest),
+                    return Some(f(*card, *src, dest)),
                 Some(Clicked::Square(square)) => Some(State::Card(*card)),
                 _ => None,
             },
         };
 
         self.render();
+        None
     }
 
     pub fn render(&self) {
