@@ -10,14 +10,12 @@ pub use card::*;
 pub use game::*;
 pub use r#move::*;
 pub use square::*;
-pub use utils::*;
 
 use std::ops::Not;
+use utils::*;
 
 pub const SIZE: usize = 5;
-pub const PAWNS: usize = SIZE - 1;
 pub const HAND: usize = 2;
-pub const PLAYS: usize = 20; // TODO ???
 
 pub use Player::*;
 #[derive(Copy, Clone, Eq, PartialEq, Debug)]
