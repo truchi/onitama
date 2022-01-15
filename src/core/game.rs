@@ -62,20 +62,25 @@ pub enum Play {
 }
 
 #[derive(Copy, Clone, Eq, PartialEq, Debug)]
+pub enum State {
+    Turn(Player),
+    Won(Player),
+    Draw,
+}
+
+#[derive(Copy, Clone, Eq, PartialEq, Debug)]
 pub struct Game {
-    winner: Option<Player>,
-    player: Player,
-    board:  Board,
-    red:    Side,
-    blue:   Side,
-    spare:  usize,
+    state: State,
+    board: Board,
+    red:   Side,
+    blue:  Side,
+    spare: usize,
 }
 
 impl Game {
     pub fn new(red: [usize; HAND], blue: [usize; HAND], spare: usize) -> Self {
         Self {
-            winner: None,
-            player: CARDS[spare].stamp,
+            state: State::Turn(CARDS[spare].stamp),
             board: Board::default(),
             red: Side::new(Red, red),
             blue: Side::new(Blue, blue),
@@ -83,8 +88,15 @@ impl Game {
         }
     }
 
-    pub fn player(&self) -> Player {
-        self.player
+    pub fn state(&self) -> State {
+        self.state
+    }
+
+    pub fn player(&self) -> Option<Player> {
+        match self.state {
+            State::Turn(player) => Some(player),
+            _ => None,
+        }
     }
 
     pub fn side(&self, player: Player) -> &Side {
@@ -115,7 +127,7 @@ impl Game {
 
     pub fn plays(&self) -> Vec<Play> {
         let mut plays = vec![];
-        let player = self.player;
+        let player = self.player().unwrap();
         let flipper = player.flipper();
         let side = self.side(player);
         let cards = side.cards();
@@ -144,7 +156,7 @@ impl Game {
     }
 
     pub fn dests(&self, card: usize, src: Square) -> impl '_ + Iterator<Item = Square> {
-        let player = self.player;
+        let player = self.player().unwrap();
         let side = self.side(player);
         let card = side.cards()[card];
         let mut moves = card.moves.iter().map(player.flipper());
@@ -159,15 +171,13 @@ impl Game {
         })
     }
 
-    pub fn play(&mut self, play: Play) -> Option<Player> {
-        debug_assert!(self.winner.is_none());
+    pub fn play(&mut self, play: Play) -> State {
+        let player = self.player().unwrap();
 
-        let discard = match play {
+        let (capture, discard) = match play {
             Play::Card { card, src, dest } => {
-                let (player, piece) = self[src].unwrap();
+                let (_, piece) = self[src].unwrap();
                 let capture = self[dest];
-
-                debug_assert!(self.player == player);
 
                 // Update board
                 self.board[src] = None;
@@ -176,52 +186,35 @@ impl Game {
                 // Update pieces
                 *self.side_mut(player).square_mut(piece) = Some(dest);
 
-                // Update hand
-                self.discard_unchecked(card);
-
-                // Update winner
-                let stone = capture == Some((!player, King));
-                let stream = self[Square::king(!player)] == Some((player, King));
-
-                if stone || stream {
-                    self.winner = Some(player);
-                }
-
-                card
+                (capture, card)
             }
-            Play::Discard(card) => card,
+            Play::Discard(card) => (None, card),
         };
 
         // Update hand
-        self.discard_unchecked(discard);
+        std::mem::swap(&mut self.spare, {
+            &mut match player {
+                Red => &mut self.red,
+                Blue => &mut self.blue,
+            }
+            .cards[discard]
+        });
 
-        // Update player
-        self.player = !self.player;
+        // Update state
+        let stone = capture == Some((!player, King));
+        let stream = self[Square::king(!player)] == Some((player, King));
 
-        self.winner
-    }
+        self.state = if stone || stream {
+            State::Won(player)
+        } else {
+            State::Turn(!player)
+        };
 
-    pub fn discard(&mut self, card: usize) {
-        debug_assert!(self.winner.is_none());
-        debug_assert!(self.plays().is_empty());
-
-        self.discard_unchecked(card);
+        self.state
     }
 }
 
 impl Game {
-    fn discard_unchecked(&mut self, card: usize) {
-        debug_assert!(card < HAND);
-
-        std::mem::swap(&mut self.spare, {
-            &mut match self.player {
-                Red => &mut self.red,
-                Blue => &mut self.blue,
-            }
-            .cards[card]
-        });
-    }
-
     fn side_mut(&mut self, player: Player) -> &mut Side {
         match player {
             Red => &mut self.red,
