@@ -75,9 +75,12 @@ pub struct Game {
     red:   Side,
     blue:  Side,
     spare: usize,
+    timer: u8,
 }
 
 impl Game {
+    const DRAW_LIMIT: u8 = 40;
+
     pub fn new(red: [usize; HAND], blue: [usize; HAND], spare: usize) -> Self {
         Self {
             state: State::Turn(CARDS[spare].stamp),
@@ -85,6 +88,7 @@ impl Game {
             red: Side::new(Red, red),
             blue: Side::new(Blue, blue),
             spare,
+            timer: Self::DRAW_LIMIT,
         }
     }
 
@@ -200,12 +204,21 @@ impl Game {
             .cards[discard]
         });
 
+        // Update timer
+        if capture.is_none() {
+            self.timer -= 1;
+        } else {
+            self.timer = Self::DRAW_LIMIT;
+        }
+
         // Update state
         let stone = capture == Some((!player, King));
         let stream = self[Square::king(!player)] == Some((player, King));
 
         self.state = if stone || stream {
             State::Won(player)
+        } else if self.timer == 0 {
+            State::Draw
         } else {
             State::Turn(!player)
         };
