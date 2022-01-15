@@ -34,6 +34,10 @@ impl Side {
             .map(move |(i, square)| (Piece::from(i), square))
     }
 
+    pub fn squares(&self) -> impl '_ + Iterator<Item = Square> {
+        self.pieces.into_iter().filter_map(|square| square)
+    }
+
     pub fn cards(&self) -> [Card; HAND] {
         [CARDS[self.cards[0]], CARDS[self.cards[1]]]
     }
@@ -48,10 +52,13 @@ impl Side {
 }
 
 #[derive(Copy, Clone, Eq, PartialEq, Debug)]
-pub struct Play {
-    pub card: usize,
-    pub src:  Square,
-    pub dest: Square,
+pub enum Play {
+    Card {
+        card: usize,
+        src:  Square,
+        dest: Square,
+    },
+    Discard(usize),
 }
 
 #[derive(Copy, Clone, Eq, PartialEq, Debug)]
@@ -106,21 +113,34 @@ impl Game {
         distance.0.max(distance.1) as u8
     }
 
-    pub fn plays(&self) -> impl '_ + Iterator<Item = Play> {
-        let side = self.side(self.player);
-        let mut iter = side
-            .pieces()
-            .map(|(_, src)| (0..HAND).map(move |card| (card, src)))
-            .flatten();
+    pub fn plays(&self) -> Vec<Play> {
+        let mut plays = vec![];
+        let player = self.player;
+        let flipper = player.flipper();
+        let side = self.side(player);
+        let cards = side.cards();
+        let squares = side.squares();
+        let is_valid = move |square| !matches!(self[square], Some((p, _)) if p == player);
 
-        std::iter::from_fn(move || {
-            let (card, src) = iter.next()?;
-            Some(
-                self.dests(card, src)
-                    .map(move |dest| Play { card, src, dest }),
-            )
-        })
-        .flatten()
+        for src in squares {
+            for (c, card) in cards.iter().enumerate() {
+                for mov in card.moves.iter().map(flipper) {
+                    if let Some(dest) = src.apply(mov) {
+                        if is_valid(dest) {
+                            plays.push(Play::Card { card: c, src, dest });
+                        }
+                    }
+                }
+            }
+        }
+
+        if plays.is_empty() {
+            for card in 0..HAND {
+                plays.push(Play::Discard(card));
+            }
+        }
+
+        plays
     }
 
     pub fn dests(&self, card: usize, src: Square) -> impl '_ + Iterator<Item = Square> {
@@ -142,38 +162,48 @@ impl Game {
     pub fn play(&mut self, play: Play) -> Option<Player> {
         debug_assert!(self.winner.is_none());
 
-        let (player, piece) = self[play.src].unwrap();
-        let capture = self[play.dest];
+        let discard = match play {
+            Play::Card { card, src, dest } => {
+                let (player, piece) = self[src].unwrap();
+                let capture = self[dest];
 
-        debug_assert!(self.player == player);
+                debug_assert!(self.player == player);
 
-        // Update board
-        self.board[play.src] = None;
-        self.board[play.dest] = Some((player, piece));
+                // Update board
+                self.board[src] = None;
+                self.board[dest] = Some((player, piece));
 
-        // Update pieces
-        *self.side_mut(player).square_mut(piece) = Some(play.dest);
+                // Update pieces
+                *self.side_mut(player).square_mut(piece) = Some(dest);
+
+                // Update hand
+                self.discard_unchecked(card);
+
+                // Update winner
+                let stone = capture == Some((!player, King));
+                let stream = self[Square::king(!player)] == Some((player, King));
+
+                if stone || stream {
+                    self.winner = Some(player);
+                }
+
+                card
+            }
+            Play::Discard(card) => card,
+        };
 
         // Update hand
-        self.discard_unchecked(play.card);
+        self.discard_unchecked(discard);
 
         // Update player
-        self.player = !player;
-
-        // Update winner
-        let stone = capture == Some((!player, King));
-        let stream = self[Square::king(!player)] == Some((player, King));
-
-        if stone || stream {
-            self.winner = Some(player);
-        }
+        self.player = !self.player;
 
         self.winner
     }
 
     pub fn discard(&mut self, card: usize) {
         debug_assert!(self.winner.is_none());
-        debug_assert!(self.plays().next().is_none());
+        debug_assert!(self.plays().is_empty());
 
         self.discard_unchecked(card);
     }
