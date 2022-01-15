@@ -1,11 +1,11 @@
 #![allow(unused)]
 
 mod core;
-// mod term;
+mod term;
 
 pub use self::core::*;
-// pub use term::*;
+pub use term::*;
 
 fn main() {
-    // term::main();
+    term::main();
 }

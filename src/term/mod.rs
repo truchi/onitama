@@ -69,20 +69,26 @@ pub fn game_loop() {
                     },
                 x::Event::Mouse(event) => {
                     if event.kind == x::MouseEventKind::Down(x::MouseButton::Left) {
-                        if let Some(play) =
-                            ui.handle_click((event.column, event.row), |card, src, dest| Play {
-                                card,
-                                src,
-                                dest,
+                        if let Some(play) = ui
+                            .handle_click((event.column, event.row), |card, src, dest| {
+                                Play::Card { card, src, dest }
                             })
                         {
-                            if let Some(winner) = game.play(play) {
-                                leave();
-                                println!("{:?} wins", winner);
-                                exit(0);
-                            } else {
-                                ui = GameUI::new(width, height, game);
-                                ui.render();
+                            match game.play(play) {
+                                State::Won(winner) => {
+                                    leave();
+                                    println!("{:?} wins", winner);
+                                    exit(0);
+                                }
+                                State::Draw => {
+                                    leave();
+                                    println!("Draw");
+                                    exit(0);
+                                }
+                                _ => {
+                                    ui = GameUI::new(width, height, game);
+                                    ui.render();
+                                }
                             }
                         }
                     }

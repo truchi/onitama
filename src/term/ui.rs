@@ -83,7 +83,7 @@ impl GameUI {
         let state_square =
             |card, src| State::Square(card, src, self.game.dests(card, src).collect::<Vec<_>>());
 
-        let player = self.game.player();
+        let player = self.game.player().unwrap();
         let board = self.board_rect();
         let [pc0, pc1] = self.cards_rect(player);
         let [oc0, oc1] = self.cards_rect(!player);
@@ -163,7 +163,7 @@ impl GameUI {
         let [(rx1, ry1, ..), (rx2, ry2, ..)] = self.cards_rect(Red);
         let [(bx1, by1, ..), (bx2, by2, ..)] = self.cards_rect(Blue);
         let (sx, sy, ..) = self.spare_rect();
-        let player = self.game.player();
+        let player = self.game.player().unwrap();
         let spare = self.game.spare();
 
         let selected = match self.state {
@@ -307,12 +307,13 @@ impl GameUI {
         let size = SIZE as u16;
         let ranks = [Five, Four, Three, Two, One];
         let files = [A, B, C, D, E];
+        let player = self.game.player().unwrap();
 
         let tinted_bg = |file, rank| {
             let bg = bg(file, rank);
 
             if self.is_active(Square(file, rank)) {
-                tint(bg, self.game.player())
+                tint(bg, player)
             } else {
                 bg
             }
@@ -385,7 +386,7 @@ impl GameUI {
     fn spare_rect(&self) -> (u16, u16, u16, u16) {
         let (board_x1, _, board_x2, _) = self.board_rect();
         let y = (self.height - Self::CARD_HEIGHT) / 2;
-        let x = if self.game.player() == Red {
+        let x = if self.game.player().unwrap() == Red {
             board_x2 + Self::MARGIN
         } else {
             board_x1 - Self::MARGIN - Self::CARD_WIDTH
